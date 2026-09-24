@@ -18,11 +18,45 @@ import type {
   WearStatus,
 } from '../../shared/types.ts';
 
+const TOKEN_KEY = 'avtozhurnal.accessToken';
+
+/** Код доступа хранится только в этом браузере и никогда не уходит в файл базы. */
+export function getAccessToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setAccessToken(token: string): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* приватный режим браузера — код просто не сохранится */
+  }
+}
+
+/** Сервер ответил 401: нужен код доступа. */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('Нужен код доступа к журналу.');
+    this.name = 'AuthRequiredError';
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAccessToken();
   const response = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-Access-Token': token } : {}),
+    },
     ...init,
   });
+
+  if (response.status === 401) throw new AuthRequiredError();
 
   if (!response.ok) {
     let message = `Ошибка запроса (${response.status})`;
@@ -51,6 +85,7 @@ export const api = {
       localUrl: string;
       lanUrls: string[];
       installable: boolean;
+      authEnabled: boolean;
     }>('/network'),
   updateSettings: (patch: Partial<Settings>) => request<Settings>('/settings', { method: 'PATCH', body: JSON.stringify(patch) }),
 
@@ -97,7 +132,45 @@ export const api = {
       averagePrice: number | null;
       trips: Array<Trip & { estimatedCost: number | null; estimatedProfit: number | null }>;
     }>(`/stats/trips${vehicleId ? `?vehicleId=${vehicleId}` : ''}`),
+  insights: (vehicleId?: string) =>
+    request<{
+      kmPerMonth: number;
+      currentOdometer: number;
+      style: {
+        actual: number | null;
+        reference: number;
+        deviationPercent: number | null;
+        wearFactor: number;
+        label: string;
+        explanation: string;
+      };
+      forecast: Array<{
+        ruleId: string;
+        name: string;
+        adjustedRemainingKm: number | null;
+        monthsLeft: number | null;
+        predictedDate: string | null;
+        adjustedPercent: number | null;
+        status: 'ok' | 'soon' | 'overdue';
+      }>;
+      ownership: {
+        monthlyAverage: number;
+        costPerKmNow: number | null;
+        costPerKmBefore: number | null;
+        costTrendPercent: number | null;
+        verdict: string;
+        explanation: string;
+      };
+    }>(`/stats/insights${vehicleId ? `?vehicleId=${vehicleId}` : ''}`),
+
   dossier: (vehicleId: string) => request<Dossier>(`/reports/dossier?vehicleId=${vehicleId}`),
+
+  uploadPhoto: (dataUrl: string) =>
+    request<{ id: string; bytes: number; url: string; message: string }>('/photos', {
+      method: 'POST',
+      body: JSON.stringify({ dataUrl }),
+    }),
+  removePhoto: (id: string) => request<{ ok: boolean }>(`/photos/${id}`, { method: 'DELETE' }),
 
   loadDemo: () => request<{ ok: boolean; message: string; summary: Record<string, number> }>('/demo', { method: 'POST' }),
   clearAll: () => request<{ ok: boolean; message: string }>('/demo', { method: 'DELETE' }),
@@ -108,10 +181,30 @@ export const api = {
     }),
 };
 
-export const csvUrl = (vehicleId?: string, type: 'fuel' | 'expenses' | 'incomes' | 'all' = 'all') =>
-  `/api/export/csv?type=${type}${vehicleId ? `&vehicleId=${vehicleId}` : ''}`;
+/**
+ * Ссылки на скачивание открываются браузером напрямую (без заголовков),
+ * поэтому код доступа передаётся в адресе. Для домашней сети это допустимо.
+ */
+function withToken(url: string): string {
+  const token = getAccessToken();
+  if (!token) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+}
 
-export const jsonUrl = (vehicleId?: string) => `/api/export/json${vehicleId ? `?vehicleId=${vehicleId}` : ''}`;
+export const csvUrl = (vehicleId?: string, type: 'fuel' | 'expenses' | 'incomes' | 'all' = 'all') =>
+  withToken(`/api/export/csv?type=${type}${vehicleId ? `&vehicleId=${vehicleId}` : ''}`);
+
+export const jsonUrl = (vehicleId?: string) => withToken(`/api/export/json${vehicleId ? `?vehicleId=${vehicleId}` : ''}`);
+
+/** Файл календаря с ближайшими сроками ТО — открывается в календаре телефона. */
+export const calendarUrl = (vehicleId?: string) =>
+  withToken(`/api/reminders/calendar.ics${vehicleId ? `?vehicleId=${vehicleId}` : ''}`);
+
+/** Фото чека открывается как картинка — код доступа передаём в адресе. */
+export const photoUrl = (photoId: string) => withToken(`/api/photos/${photoId}`);
+
+/** QR-код открывается как картинка, поэтому код доступа тоже передаём в адресе. */
+export const qrUrl = (url: string) => withToken(`/api/network/qr.svg?url=${encodeURIComponent(url)}`);
 
 export interface Dossier {
   generatedAt: string;

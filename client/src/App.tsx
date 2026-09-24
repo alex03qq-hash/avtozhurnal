@@ -17,6 +17,9 @@ import PartsPage from './pages/PartsPage.tsx';
 import ChecklistPage from './pages/ChecklistPage.tsx';
 import DossierPage from './pages/DossierPage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
+import LoginScreen from './LoginScreen.tsx';
+import { useMaintenanceAlerts } from './hooks/useMaintenanceAlerts.ts';
+import { currentRoute, useHashRoute } from './router.ts';
 
 interface NavItem {
   id: string;
@@ -39,30 +42,23 @@ const NAV: NavItem[] = [
 ];
 
 function useRoute(): [string, (next: string) => void] {
-  const read = () => window.location.hash.replace(/^#\/?/, '') || 'dashboard';
-  const [route, setRoute] = useState(read);
-
-  useEffect(() => {
-    const handler = () => setRoute(read());
-    window.addEventListener('hashchange', handler);
-    return () => window.removeEventListener('hashchange', handler);
-  }, []);
-
+  const route = useHashRoute();
   const navigate = (next: string) => {
     window.location.hash = `#/${next}`;
   };
-
-  return [route, navigate];
+  return [route || currentRoute(), navigate];
 }
 
 const MOBILE_NAV = ['dashboard', 'fuel', 'expenses', 'service', 'settings'];
 
 export default function App() {
-  const { loading, error, vehicles, activeVehicle, selectVehicle, reload, notify, resolvedTheme, updateSettings } = useApp();
+  const { loading, error, vehicles, activeVehicle, selectVehicle, reload, notify, resolvedTheme, updateSettings, authRequired, signIn } = useApp();
   const [route, navigate] = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  // Проверка сроков ТО: уведомление браузера показывается, если разрешение уже выдано.
+  useMaintenanceAlerts(activeVehicle?.id);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -115,6 +111,10 @@ export default function App() {
         return <DashboardPage />;
     }
   };
+
+  if (authRequired) {
+    return <LoginScreen onSignIn={signIn} />;
+  }
 
   if (loading) {
     return (
