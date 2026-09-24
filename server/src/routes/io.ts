@@ -40,7 +40,7 @@ export function createIoRouter(store: Store, server: { port: number; host: strin
   router.get('/network', (req, res) => {
     const protocol = (req.headers['x-forwarded-proto'] as string) === 'https' || req.protocol === 'https' ? 'https' : 'http';
     const info = buildServerInfo(server.port, server.host, protocol);
-    res.json({ ...info, installable: true });
+    res.json({ ...info, installable: true, authEnabled: Boolean(process.env.ACCESS_TOKEN?.trim()) });
   });
 
   /** QR-код со ссылкой на приложение: телефон наводит камеру и открывает журнал. */
