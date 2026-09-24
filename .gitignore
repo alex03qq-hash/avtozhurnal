@@ -9,6 +9,7 @@ dist/
 # данные приложения (личная база пользователя)
 data/db.json
 data/*.json
+data/photos/
 !data/.gitkeep
 
 # окружение и секреты
