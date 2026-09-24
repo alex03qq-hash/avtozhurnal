@@ -1844,3 +1844,237 @@ body.modal-open {
     font-size: var(--fs-12);
   }
 }
+
+
+/* ─────────── Экран входа по коду доступа ─────────── */
+
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.login__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(420px, 100%);
+  padding: var(--space-8) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  text-align: left;
+}
+
+.login__mark {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto var(--space-2);
+}
+
+.login__title {
+  margin: 0;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-semibold);
+  text-align: center;
+}
+
+.login__text,
+.login__hint {
+  margin: 0;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+  line-height: var(--lh-normal);
+}
+
+.login__hint {
+  font-size: var(--fs-12);
+  color: var(--text-3);
+}
+
+.login__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-13);
+}
+
+.login code {
+  background: var(--surface-2);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+
+/* ─────────── Блок «Напоминания на телефон» ─────────── */
+
+.reminder-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.reminder-grid__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.settings-subtitle {
+  margin: 0;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+@media (max-width: 900px) {
+  .reminder-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* ─────────── Быстрые действия и подсветка формы ─────────── */
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.card--attention {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 900px) {
+  .quick-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+
+  .quick-actions .btn {
+    width: 100%;
+  }
+
+  .quick-actions .btn--primary {
+    grid-column: 1 / -1;
+  }
+}
+
+
+/* ─────────── Фото чека ─────────── */
+
+.photo-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.photo-field__input {
+  display: none;
+}
+
+.photo-field__preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.photo-field__preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.photo-field__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.photo-thumb {
+  display: inline-block;
+  border-bottom: 0;
+}
+
+.photo-thumb img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+
+/* ─────────── Блок выводов ─────────── */
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-5);
+}
+
+.insight-grid__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--accent-soft);
+}
+
+.insight__label {
+  font-size: var(--fs-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.insight__value {
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+}
+
+.insight__text {
+  margin: 0;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+}
+
+.insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.insight-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-13);
+}
+
+.insight-list__name {
+  font-weight: var(--fw-medium);
+}
+
+.insight-list__meta {
+  margin-left: auto;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
