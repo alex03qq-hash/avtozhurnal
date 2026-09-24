@@ -3,7 +3,9 @@
 import React, { useRef, useState } from 'react';
 import { api, csvUrl, jsonUrl } from '../api.ts';
 import { useApp } from '../store.tsx';
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Modal, NumberInput, Select, TextInput } from '../ui.tsx';
+import { useLoad } from '../hooks/useLoad.ts';
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Loader, Modal, NumberInput, Select, TextInput } from '../ui.tsx';
+import { useInstallPrompt } from '../hooks/useInstallPrompt.ts';
 import { formatDate } from '../../../shared/format.ts';
 import { FUEL_TYPE_LABELS, UNIT_SYSTEM_LABELS } from '../../../shared/constants.ts';
 import type { Database, ThemeName, UnitSystem, Vehicle } from '../../../shared/types.ts';
@@ -30,6 +32,8 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const fileInput = useRef<HTMLInputElement>(null);
+  const install = useInstallPrompt();
+  const network = useLoad(() => api.network(), [], null);
 
   const addVehicle = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -277,6 +281,87 @@ export default function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      <Card
+        title="Установка на телефон"
+        subtitle="Телефон открывает журнал по Wi-Fi, а приложение ставится на домашний экран и работает как обычное"
+      >
+        {network.loading ? (
+          <Loader label="Определяем адрес в сети…" />
+        ) : network.error ? (
+          <ErrorNote message={network.error} />
+        ) : !network.data?.lanUrls.length ? (
+          <InfoNote>
+            Компьютер не подключён к локальной сети, поэтому телефон его пока не видит. Подключите компьютер к тому же
+            Wi-Fi, что и телефон, и перезапустите приложение.
+          </InfoNote>
+        ) : (
+          <div className="install-grid">
+            <div className="install-grid__info">
+              <ol className="install-steps">
+                <li>Подключите телефон к той же сети Wi-Fi, что и этот компьютер.</li>
+                <li>
+                  Откройте с телефона адрес <code>{network.data.lanUrls[0]}</code> — проще всего навести камеру на
+                  QR-код справа.
+                </li>
+                <li>
+                  {install.canInstall
+                    ? 'Нажмите кнопку установки ниже — система сама предложит поставить приложение на домашний экран.'
+                    : install.isIos
+                      ? 'В Safari нажмите «Поделиться» → «На экран „Домой“» — приложение встанет как обычное.'
+                      : 'В меню браузера выберите «Установить приложение» или «Добавить на главный экран».'}
+                </li>
+              </ol>
+
+              <div className="button-row">
+                {install.isStandalone ? (
+                  <Badge tone="good">Приложение уже установлено</Badge>
+                ) : install.canInstall ? (
+                  <Button
+                    variant="primary"
+                    onClick={async () => {
+                      const outcome = await install.install();
+                      notify(
+                        outcome === 'accepted' ? 'Устанавливаем приложение…' : 'Установка отменена.',
+                        outcome === 'accepted' ? 'success' : 'info',
+                      );
+                    }}
+                  >
+                    Установить приложение
+                  </Button>
+                ) : (
+                  <Badge tone="neutral">
+                    {install.isIos ? 'Установка вручную — см. шаг 3' : 'Откройте адрес на телефоне'}
+                  </Badge>
+                )}
+              </div>
+
+              <InfoNote>
+                Android ставит приложение на домашний экран только по защищённому адресу. Если браузер не показывает
+                установку, выполните на компьютере <code>npm run cert</code>, затем <code>npm run start:https</code> —
+                и открывайте адрес с <code>https://</code>. Телефон один раз попросит подтвердить самоподписанный
+                сертификат.
+              </InfoNote>
+
+              <p className="hint-line">
+                Все адреса компьютера в сети: {network.data.lanUrls.join(', ')}. Данные не покидают вашу домашнюю
+                сеть, но помните: доступ по Wi-Fi не защищён паролем — гости в той же сети тоже смогут открыть журнал.
+              </p>
+            </div>
+
+            <div className="install-grid__qr">
+              <img
+                className="install-qr"
+                src={`/api/network/qr.svg?url=${encodeURIComponent(network.data.lanUrls[0])}`}
+                alt={`QR-код со ссылкой ${network.data.lanUrls[0]}`}
+                width={220}
+                height={220}
+              />
+              <span className="install-qr__caption">Наведите камеру телефона</span>
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card title="Демонстрационные данные" subtitle="Быстрый способ посмотреть приложение в деле: два авто, год истории, разные статусы ТО">
         <div className="button-row">
