@@ -1,6 +1,6 @@
 /** Заправки и зарядки: быстрая запись + полный список. */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.ts';
 import { useApp } from '../store.tsx';
 import { useCollection } from '../hooks/useLoad.ts';
@@ -9,6 +9,9 @@ import { formatDate, formatMoney, formatNumber, formatOdometer, todayISO } from 
 import { FUEL_TYPE_LABELS } from '../../../shared/constants.ts';
 import type { FuelEntry } from '../../../shared/types.ts';
 import { priceLabel, toDisplayDistance, toDisplayPrice, toDisplayVolume, toStoredDistance, toStoredPrice, toStoredVolume, volumeLabel } from '../utils/units.ts';
+import { useHashParam } from '../router.ts';
+import PhotoField from '../components/PhotoField.tsx';
+import { photoUrl } from '../api.ts';
 
 interface FormState {
   date: string;
@@ -41,8 +44,21 @@ export default function FuelPage() {
   const vehicleId = activeVehicle?.id;
   const isElectric = activeVehicle?.fuelType === 'electric';
   const { rows, loading, error, reload } = useCollection<FuelEntry>('fuel', vehicleId);
+  // Быстрое действие с домашнего экрана телефона открывает форму и ставит курсор в одометр.
+  const startNew = useHashParam('new') === '1';
+  const odometerRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm(activeVehicle?.fuelType ?? 'petrol', 0));
+
+  useEffect(() => {
+    if (!startNew) return undefined;
+    const timer = window.setTimeout(() => {
+      odometerRef.current?.focus();
+      odometerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [startNew]);
   const [editing, setEditing] = useState<FuelEntry | null>(null);
+  const [photoId, setPhotoId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const lastOdometer = useMemo(() => {
@@ -68,6 +84,7 @@ export default function FuelPage() {
     fuelType: source.fuelType,
     isFullTank: source.isFullTank,
     station: source.station,
+    photoId,
     notes: source.notes,
   });
 
@@ -79,6 +96,7 @@ export default function FuelPage() {
       await api.create<FuelEntry>('fuel', buildPayload(form));
       notify('Заправка добавлена.', 'success');
       setForm(emptyForm(activeVehicle?.fuelType ?? 'petrol', 0));
+      setPhotoId(null);
       await reload();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Не удалось сохранить заправку.', 'error');
@@ -98,6 +116,7 @@ export default function FuelPage() {
         pricePerUnit: editing.pricePerUnit,
         totalCost: editing.totalCost,
         station: editing.station,
+        photoId: editing.photoId ?? null,
         isFullTank: editing.isFullTank,
         notes: editing.notes,
       });
@@ -126,13 +145,18 @@ export default function FuelPage() {
 
   return (
     <div className="stack">
-      <Card title="Быстрая запись" subtitle="Заполните объём и цену — сумма посчитается сама">
+      <Card
+        className={startNew ? 'card--attention' : ''}
+        title="Быстрая запись"
+        subtitle={startNew ? 'Открыто быстрым действием: введите показание одометра' : 'Заполните объём и цену — сумма посчитается сама'}
+      >
         <form className="form-grid" onSubmit={submit}>
           <Field label="Дата">
             <TextInput type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
           </Field>
           <Field label={`Одометр, ${unitSystem === 'imperial' ? 'миль' : 'км'}`} hint={`прошлое показание: ${formatOdometer(toDisplayDistance(lastOdometer, unitSystem))}`}>
             <NumberInput
+              inputRef={odometerRef}
               value={form.odometer}
               onChange={(e) => setForm({ ...form, odometer: e.target.value })}
               placeholder={String(Math.round(toDisplayDistance(lastOdometer, unitSystem)))}
@@ -166,6 +190,7 @@ export default function FuelPage() {
               checked={form.isFullTank}
               onChange={(e) => setForm({ ...form, isFullTank: e.target.checked })}
             />
+            <PhotoField photoId={photoId} onChange={setPhotoId} onError={(message) => notify(message, 'error')} />
             <Button variant="primary" type="submit" disabled={busy || !vehicleId}>
               Добавить заправку
             </Button>
@@ -199,6 +224,18 @@ export default function FuelPage() {
               { key: 'price', title: 'Цена', align: 'right', render: (row) => formatMoney(toDisplayPrice(row.pricePerUnit, unitSystem)) },
               { key: 'total', title: 'Сумма', align: 'right', render: (row) => formatMoney(row.totalCost) },
               { key: 'station', title: 'АЗС', render: (row) => row.station || '—' },
+              {
+                key: 'photo',
+                title: 'Чек',
+                render: (row) =>
+                  row.photoId ? (
+                    <a href={photoUrl(row.photoId)} target="_blank" rel="noreferrer" className="photo-thumb">
+                      <img src={photoUrl(row.photoId)} alt="Фото чека" />
+                    </a>
+                  ) : (
+                    '—'
+                  ),
+              },
               {
                 key: 'full',
                 title: 'Полный бак',
@@ -255,6 +292,13 @@ export default function FuelPage() {
             <Field label="АЗС">
               <TextInput value={editing.station} onChange={(e) => setEditing({ ...editing, station: e.target.value })} />
             </Field>
+            <div className="form-grid__wide">
+              <PhotoField
+                photoId={editing.photoId ?? null}
+                onChange={(next) => setEditing({ ...editing, photoId: next })}
+                onError={(message) => notify(message, 'error')}
+              />
+            </div>
             <div className="form-grid__wide">
               <Checkbox
                 label="Полный бак"
