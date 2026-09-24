@@ -55,11 +55,25 @@ function useRoute(): [string, (next: string) => void] {
   return [route, navigate];
 }
 
+const MOBILE_NAV = ['dashboard', 'fuel', 'expenses', 'service', 'settings'];
+
 export default function App() {
   const { loading, error, vehicles, activeVehicle, selectVehicle, reload, notify, resolvedTheme, updateSettings } = useApp();
   const [route, navigate] = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   const current = useMemo(() => NAV.find((item) => item.id === route) ?? NAV[0], [route]);
 
@@ -187,6 +201,12 @@ export default function App() {
           </div>
         </header>
 
+        {!online && (
+          <div className="note note--info" role="status">
+            Нет подключения к серверу с базой. Записи не сохранятся, пока связь не восстановится.
+          </div>
+        )}
+
         {error && (
           <div className="note note--error" role="alert">
             {error}
@@ -211,6 +231,32 @@ export default function App() {
             renderPage()
           )}
         </div>
+
+        <nav className="bottom-nav" aria-label="Основные разделы">
+          {MOBILE_NAV.map((id) => {
+            const item = NAV.find((nav) => nav.id === id);
+            if (!item) return null;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`bottom-nav__item ${route === id ? 'is-active' : ''}`}
+                onClick={() => navigate(id)}
+              >
+                <span className="bottom-nav__icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className="bottom-nav__label">{item.label}</span>
+              </button>
+            );
+          })}
+          <button type="button" className="bottom-nav__item" onClick={() => setMenuOpen(true)}>
+            <span className="bottom-nav__icon" aria-hidden="true">
+              ☰
+            </span>
+            <span className="bottom-nav__label">Ещё</span>
+          </button>
+        </nav>
 
         <footer className="footer">
           <span>Данные хранятся только на этом компьютере — в файле data/db.json.</span>

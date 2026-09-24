@@ -43,6 +43,15 @@ export const api = {
   health: () => request<{ ok: boolean; dataFile: string; vehicles: number }>('/health'),
 
   settings: () => request<Settings>('/settings'),
+  network: () =>
+    request<{
+      port: number;
+      host: string;
+      protocol: 'http' | 'https';
+      localUrl: string;
+      lanUrls: string[];
+      installable: boolean;
+    }>('/network'),
   updateSettings: (patch: Partial<Settings>) => request<Settings>('/settings', { method: 'PATCH', body: JSON.stringify(patch) }),
 
   list: <T>(collection: string, params: Record<string, string | undefined> = {}) => {
