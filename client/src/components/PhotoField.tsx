@@ -31,7 +31,7 @@ export default function PhotoField({
   };
 
   return (
-    <div className="photo-field">
+    <div className="photo-field photo-field--form">
       <input
         ref={inputRef}
         className="photo-field__input"
@@ -46,8 +46,8 @@ export default function PhotoField({
       />
       {photoId ? (
         <div className="photo-field__preview">
-          <a href={photoUrl(photoId)} target="_blank" rel="noreferrer" title="Открыть фото">
-            <img src={photoUrl(photoId)} alt="Фото чека" />
+          <a href={photoUrl(photoId)} target="_blank" rel="noreferrer" title="Открыть фото в полном размере">
+            <img src={photoUrl(photoId)} alt="Фото чека — по нему вносятся данные" />
           </a>
           <div className="photo-field__actions">
             <Button size="sm" variant="ghost" onClick={() => inputRef.current?.click()}>

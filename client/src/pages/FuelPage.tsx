@@ -191,6 +191,9 @@ export default function FuelPage() {
               onChange={(e) => setForm({ ...form, isFullTank: e.target.checked })}
             />
             <PhotoField photoId={photoId} onChange={setPhotoId} onError={(message) => notify(message, 'error')} />
+          </div>
+          <div className="form-grid__wide">
+            <p className="form-hint">Фото — это исходник. В резервную копию попадают данные, а не снимок: внесите объём и сумму из чека, и запись будет полной даже без фотографии.</p><div className="form-grid__wide"></div>
             <Button variant="primary" type="submit" disabled={busy || !vehicleId}>
               Добавить заправку
             </Button>

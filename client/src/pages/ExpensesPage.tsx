@@ -99,6 +99,7 @@ export default function ExpensesPage() {
           </Field>
           <div className="form-grid__wide form-actions">
             <PhotoField photoId={photoId} onChange={setPhotoId} onError={(message) => notify(message, 'error')} />
+            <p className="form-hint">Фото — это исходник. В резервную копию попадают данные, а не снимок: внесите объём и сумму из чека, и запись будет полной даже без фотографии.</p>
             <span className="hint-line">Всего расходов: {formatMoney(total)}</span>
             <Button variant="primary" type="submit" disabled={busy || !vehicleId}>
               Добавить расход
