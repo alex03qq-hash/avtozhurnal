@@ -204,21 +204,30 @@ try {
   /* 3. Добавляем две заправки «до полного бака» через форму быстрой записи */
   await goto('fuel');
   await waitFor('!!document.querySelector(".form-grid")');
-  const addFuel = async (odometer, volume, price) => {
-    await evaluate(`window.__fillByLabel('Дата', '2026-09-01')`);
+  // Быстрый ввод: оператор вносит сумму и объём из чека, цена считается сама.
+  const addFuel = async (odometer, volume, total) => {
     await evaluate(`window.__fillByLabel('Одометр', '${odometer}')`);
     await evaluate(`window.__fillByLabel('Объём', '${volume}')`);
-    await evaluate(`window.__fillByLabel('₽ / л', '${price}')`);
+    await evaluate(`window.__fillByLabel('Сумма по чеку', '${total}')`);
     await evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Добавить заправку')).click()`);
     await sleep(2200);
   };
-  await addFuel(1000, 40, 60);
+  await addFuel(1000, 40, 2400);
   const rowsAfterFirst = await evaluate('window.__table().length');
   check('Первая заправка появилась в таблице', rowsAfterFirst === 1, `строк: ${rowsAfterFirst}`);
 
-  await addFuel(1500, 35, 62);
+  // Проверяем подсказку о посчитанной цене до отправки формы
+  await evaluate(`window.__fillByLabel('Одометр', '1500')`);
+  await evaluate(`window.__fillByLabel('Объём', '35')`);
+  await evaluate(`window.__fillByLabel('Сумма по чеку', '2170')`);
+  await sleep(600);
+  const priceHint = await evaluate("document.querySelector('.quick-price__value')?.textContent ?? ''");
+  check('Цена за литр считается из суммы и объёма', String(priceHint).includes('62'), String(priceHint).trim());
+  await evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Добавить заправку')).click()`);
+  await sleep(2200);
   const rows = await evaluate('window.__table()');
   check('Вторая заправка добавлена', rows.length === 2, `строк: ${rows.length}`);
+  check('В таблице посчитана цена за литр (2 170 ÷ 35 = 62)', rows.some((row) => row.join(' ').includes('62\u00A0₽')), JSON.stringify(rows[0]));
   // Сумма второй заправки: 35 × 62 = 2 170 ₽ (неразрывный пробел — как в формате приложения)
   const fuelOk = rows.some((row) => row.join(' ').includes('2\u00A0170'));
   check('Сумма второй заправки рассчитана автоматически (35 × 62 = 2 170)', fuelOk, JSON.stringify(rows[0]));

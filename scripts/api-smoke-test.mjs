@@ -87,6 +87,21 @@ for (const type of ['fuel', 'expenses', 'incomes', 'all']) {
   );
 }
 
+/* ── Цены по АЗС ── */
+
+const stations = await call(`/api/stats/stations?vehicleId=${vehicleId}`);
+const stationRows = stations.body ?? [];
+check(
+  'GET /api/stats/stations отдаёт цены по каждой АЗС',
+  stations.status === 200 && stationRows.length > 0 && stationRows.every((row) => typeof row.lastPrice === 'number'),
+  stationRows.slice(0, 3).map((row) => `${row.station}: ${row.lastPrice} ₽`).join(', '),
+);
+check(
+  'Цены на разных АЗС различаются — подставлять среднюю нельзя',
+  new Set(stationRows.map((row) => row.lastPrice)).size > 1,
+  `разных цен: ${new Set(stationRows.map((row) => row.lastPrice)).size} из ${stationRows.length}`,
+);
+
 /* ── Выводы: стиль вождения, прогноз износа, стоимость владения ── */
 
 const insights = await call(`/api/stats/insights?vehicleId=${vehicleId}`);
