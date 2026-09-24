@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api } from './api.ts';
+import { api, AuthRequiredError, setAccessToken } from './api.ts';
 import type { Settings, ThemeName, UnitSystem, Vehicle } from '../../shared/types.ts';
 
 type ToastKind = 'success' | 'error' | 'info';
@@ -24,6 +24,10 @@ interface AppContextValue {
   resolvedTheme: 'light' | 'dark';
   loading: boolean;
   error: string | null;
+  /** true — сервер требует код доступа, показываем экран входа. */
+  authRequired: boolean;
+  signIn: (token: string) => Promise<boolean>;
+  signOut: () => void;
   toasts: Toast[];
   reload: () => Promise<void>;
   selectVehicle: (id: string) => Promise<void>;
@@ -43,6 +47,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [systemDark, setSystemDark] = useState(systemPrefersDark());
 
@@ -63,8 +68,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSettings(nextSettings);
       setVehicles(nextVehicles);
       setError(null);
+      setAuthRequired(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить данные.');
+      if (err instanceof AuthRequiredError) {
+        setAuthRequired(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить данные.');
+      }
     } finally {
       setLoading(false);
     }
@@ -116,6 +126,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [notify],
   );
 
+  /** Вход по коду: сохраняем код в браузере и сразу пробуем загрузить данные. */
+  const signIn = useCallback(async (token: string) => {
+    setAccessToken(token);
+    try {
+      const [nextSettings, nextVehicles] = await Promise.all([
+        api.settings(),
+        api.list<Vehicle>('vehicles', { includeArchived: 'true' }),
+      ]);
+      setSettings(nextSettings);
+      setVehicles(nextVehicles);
+      setAuthRequired(false);
+      setError(null);
+      return true;
+    } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        setAccessToken('');
+        return false;
+      }
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить данные.');
+      return false;
+    }
+  }, []);
+
+  const signOut = useCallback(() => {
+    setAccessToken('');
+    setAuthRequired(true);
+  }, []);
+
   const activeVehicle = useMemo(() => {
     if (!vehicles.length) return null;
     return vehicles.find((v) => v.id === settings?.activeVehicleId) ?? vehicles[0];
@@ -130,6 +168,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     resolvedTheme,
     loading,
     error,
+    authRequired,
+    signIn,
+    signOut,
     toasts,
     reload,
     selectVehicle,
