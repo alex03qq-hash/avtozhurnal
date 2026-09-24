@@ -58,6 +58,14 @@ check('Service worker не кэширует данные API', swText.includes("
 const shell = await fetch(`${BASE}/`);
 check('Оболочка приложения отдаётся', shell.ok);
 
+const shortcuts = manifest.shortcuts ?? [];
+check(
+  'Есть быстрые действия с домашнего экрана',
+  shortcuts.length >= 3 && shortcuts.every((item) => typeof item.url === 'string' && item.url.startsWith('/#/')),
+  shortcuts.map((item) => `${item.short_name}: ${item.url}`).join(' | '),
+);
+check('Среди быстрых действий есть новая заправка', shortcuts.some((item) => item.url.includes('/fuel?new=1')));
+
 /* ── 3. Регистрация в браузере ───────────────────────────────── */
 
 const profile = mkdtempSync(path.join(tmpdir(), 'avtozhurnal-pwa-'));
@@ -132,6 +140,24 @@ try {
   const viewportWidth = await evaluate('window.innerWidth');
   const bottomNav = await evaluate("!!document.querySelector('.bottom-nav') && getComputedStyle(document.querySelector('.bottom-nav')).display !== 'none'");
   check('На узком экране появляется нижняя навигация', bottomNav === true, `ширина окна: ${viewportWidth}px`);
+
+  await send('Page.navigate', { url: `${BASE}/#/fuel?new=1` });
+  await sleep(4000);
+  const focusedIsOdometer = await evaluate(
+    "document.activeElement && document.activeElement.closest('.field')?.querySelector('.field__label')?.textContent?.includes('Одометр') === true",
+  );
+  check('Быстрое действие «Новая заправка» ставит курсор в поле одометра', focusedIsOdometer === true);
+  const highlighted = await evaluate("!!document.querySelector('.card--attention')");
+  check('Форма быстрой записи подсвечена', highlighted === true);
+
+  await send('Page.navigate', { url: `${BASE}/#/dashboard` });
+  await sleep(4000);
+  const quickActions = await evaluate("document.querySelectorAll('.quick-actions .btn').length");
+  check('На дашборде есть быстрые действия', Number(quickActions) >= 4, `кнопок: ${quickActions}`);
+  await evaluate("[...document.querySelectorAll('.quick-actions .btn')].find((b) => b.textContent.includes('Чек-лист')).click()");
+  await sleep(2500);
+  const onChecklist = await evaluate("!!document.querySelector('.checklist') || document.querySelector('.topbar__title')?.textContent === 'Чек-лист'");
+  check('Быстрое действие ведёт в нужный раздел', onChecklist === true);
 
   const shellCached = await evaluate(
     "caches.open('avtozhurnal-shell-v1').then((c) => c.keys()).then((keys) => keys.length)",

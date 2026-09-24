@@ -105,9 +105,10 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 
 export function NumberInput({
   step = 'any',
+  inputRef,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { step?: string | number }) {
-  return <input className="input input--number" type="number" step={step} inputMode="decimal" {...props} />;
+}: React.InputHTMLAttributes<HTMLInputElement> & { step?: string | number; inputRef?: React.Ref<HTMLInputElement> }) {
+  return <input ref={inputRef} className="input input--number" type="number" step={step} inputMode="decimal" {...props} />;
 }
 
 export function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
