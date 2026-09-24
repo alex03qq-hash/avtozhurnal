@@ -2078,3 +2078,29 @@ body.modal-open {
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
+
+
+/* В форме фото показывается крупно: по нему сверяют цифры, пока заполняют поля. */
+.photo-field--form .photo-field__preview img {
+  width: 132px;
+  height: 132px;
+  border-radius: var(--radius-md);
+}
+
+.photo-field--form {
+  align-items: flex-start;
+}
+
+.form-hint {
+  margin: 0;
+  font-size: var(--fs-12);
+  color: var(--text-3);
+  max-width: 62ch;
+}
+
+@media (max-width: 900px) {
+  .photo-field--form .photo-field__preview img {
+    width: 104px;
+    height: 104px;
+  }
+}
