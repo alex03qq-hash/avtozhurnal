@@ -7,19 +7,61 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f6f5f1",
   "theme_color": "#2f7d7a",
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Заправки", "short_name": "Заправки", "url": "/#/fuel" },
-    { "name": "Обслуживание", "short_name": "ТО", "url": "/#/service" },
-    { "name": "Авто-досье", "short_name": "Досье", "url": "/#/dossier" }
+    {
+      "name": "Новая заправка",
+      "short_name": "Заправка",
+      "id": "fuel-new",
+      "url": "/#/fuel?new=1"
+    },
+    {
+      "name": "Чек-лист перед выездом",
+      "short_name": "Чек-лист",
+      "id": "checklist",
+      "url": "/#/checklist"
+    },
+    {
+      "name": "Обслуживание и износ",
+      "short_name": "ТО",
+      "id": "service",
+      "url": "/#/service"
+    },
+    {
+      "name": "Авто-досье",
+      "short_name": "Досье",
+      "id": "dossier",
+      "url": "/#/dossier"
+    }
   ]
 }

@@ -4,12 +4,13 @@ import React from 'react';
 import { api } from '../api.ts';
 import { useApp } from '../store.tsx';
 import { useLoad } from '../hooks/useLoad.ts';
-import { Card, EmptyState, ErrorNote, Kpi, Loader, ProgressBar, StatusBadge } from '../ui.tsx';
+import { Button, Card, EmptyState, ErrorNote, Kpi, Loader, ProgressBar, StatusBadge } from '../ui.tsx';
 import { DonutChart, LineChart, StackedBarChart } from '../components/charts.tsx';
 import { formatDate, formatMoney, formatMoneyShort, formatNumber, formatOdometer, monthKey } from '../../../shared/format.ts';
 import type { Expense, FuelEntry, Income } from '../../../shared/types.ts';
 import { EXPENSE_CATEGORY_LABELS } from '../../../shared/constants.ts';
 import { costPerDistanceLabel, formatConsumptionForUnit, toDisplayCostPerKm, toDisplayDistance } from '../utils/units.ts';
+import { navigateTo } from '../router.ts';
 
 export default function DashboardPage() {
   const { activeVehicle, unitSystem, notify } = useApp();
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const monthly = useLoad(() => api.monthly(vehicleId, 12), [vehicleId], []);
   const categories = useLoad(() => api.categories(vehicleId), [vehicleId], []);
   const reminders = useLoad(() => api.reminders(vehicleId), [vehicleId], { odometer: 0, items: [] });
+  const insights = useLoad(() => api.insights(vehicleId), [vehicleId], null);
   const recent = useLoad(
     async () => {
       const [fuel, expenses, incomes] = await Promise.all([
@@ -92,6 +94,15 @@ export default function DashboardPage() {
           hint={stats ? `доходы ${formatMoneyShort(stats.income)}` : ''}
           tone={stats && stats.profit < 0 ? 'bad' : 'good'}
         />
+      </div>
+
+      <div className="quick-actions">
+        <Button variant="primary" onClick={() => navigateTo('fuel?new=1')}>
+          + Заправка
+        </Button>
+        <Button onClick={() => navigateTo('checklist')}>Чек-лист перед выездом</Button>
+        <Button onClick={() => navigateTo('service')}>Обслуживание</Button>
+        <Button onClick={() => navigateTo('dossier')}>Авто-досье</Button>
       </div>
 
       <div className="grid grid--2">
@@ -175,6 +186,46 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {insights.data && (
+        <Card
+          title="Что это значит"
+          subtitle="Выводы по вашим цифрам: стиль вождения, прогноз по деталям и стоимость владения"
+        >
+          <div className="insight-grid">
+            <div className="insight-grid__col">
+              <span className="insight__label">Стиль вождения</span>
+              <span className="insight__value">{insights.data.style.label}</span>
+              <p className="insight__text">{insights.data.style.explanation}</p>
+              <p className="hint-line">
+                Пробег около {formatNumber(insights.data.kmPerMonth, 0)} км в месяц.
+              </p>
+            </div>
+
+            <div className="insight-grid__col">
+              <span className="insight__label">Прогноз по деталям</span>
+              <ul className="insight-list">
+                {insights.data.forecast.slice(0, 4).map((item) => (
+                  <li key={item.ruleId}>
+                    <span className="insight-list__name">{item.name}</span>
+                    <span className="insight-list__meta">
+                      {item.predictedDate ? `около ${formatDate(item.predictedDate)}` : 'нужно больше данных'}
+                      {item.monthsLeft !== null ? ` · ${item.monthsLeft} мес.` : ''}
+                    </span>
+                    <StatusBadge status={item.status} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="insight-grid__col">
+              <span className="insight__label">Стоимость владения</span>
+              <span className="insight__value">{insights.data.ownership.verdict}</span>
+              <p className="insight__text">{insights.data.ownership.explanation}</p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <p className="hint-line">
         Период данных: с {formatDate((recent.data[recent.data.length - 1]?.date) ?? activeVehicle.createdAt.slice(0, 10))} · текущий месяц{' '}
