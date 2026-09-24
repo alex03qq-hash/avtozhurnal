@@ -16,7 +16,10 @@ import { ValidationError } from './validate.ts';
 import { createCollectionRouter } from './routes/crud.ts';
 import { createStatsRouter } from './routes/stats.ts';
 import { createIoRouter } from './routes/io.ts';
+import { createPhotosRouter } from './routes/photos.ts';
+import { PhotoStore } from './photo-store.ts';
 import { buildServerInfo } from './network.ts';
+import { createAuthMiddleware, describeTokenProblem, readAccessToken } from './auth.ts';
 import type { CollectionName } from '../../shared/types.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +36,10 @@ const CLIENT_DIST = path.join(repoRoot, 'client', 'dist');
 const store = new Store(DATA_DIR);
 await store.init();
 
+// Фотографии чеков: отдельные файлы рядом с базой.
+const photoStore = new PhotoStore(DATA_DIR);
+await photoStore.init();
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '25mb' }));
@@ -43,10 +50,25 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Код доступа: включается переменной ACCESS_TOKEN, по умолчанию журнал открыт.
+const ACCESS_TOKEN = readAccessToken();
+const tokenProblem = describeTokenProblem(ACCESS_TOKEN);
+if (tokenProblem) {
+  console.error(`Ошибка настройки кода доступа: ${tokenProblem}`);
+  process.exit(1);
+}
+app.use('/api', createAuthMiddleware(ACCESS_TOKEN));
+
 const collections: CollectionName[] = ['vehicles', 'fuel', 'expenses', 'incomes', 'trips', 'parts', 'rules', 'checklist'];
 for (const name of collections) {
-  app.use(`/api/${name}`, createCollectionRouter(store, name));
+  app.use(
+    `/api/${name}`,
+    createCollectionRouter(store, name, (row) => {
+      if (typeof row.photoId === 'string' && row.photoId) void photoStore.remove(row.photoId);
+    }),
+  );
 }
+app.use('/api', createPhotosRouter(store, photoStore));
 app.use('/api', createStatsRouter(store));
 app.use('/api', createIoRouter(store, { port: PORT, host: HOST }));
 
@@ -95,6 +117,11 @@ const onListening = () => {
     console.log('Адрес в локальной сети не найден — возможно, компьютер не подключён к Wi-Fi.');
   }
   console.log(`Файл базы данных: ${store.filePath}`);
+  console.log(
+    ACCESS_TOKEN
+      ? 'Доступ защищён кодом из переменной ACCESS_TOKEN.'
+      : 'Доступ без кода: журнал открыт любому в этой сети. Код задаётся переменной ACCESS_TOKEN.',
+  );
 };
 
 const server =
