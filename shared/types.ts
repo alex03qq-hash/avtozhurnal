@@ -70,6 +70,11 @@ export interface FuelEntry extends BaseEntity {
   /** Заправка «до полного бака» — критично для корректного расчёта расхода. */
   isFullTank: boolean;
   station: string;
+  /**
+   * Ссылка на фото чека (файл в data/photos). Поле необязательное: в записях,
+   * сделанных до появления фотографий, его просто нет.
+   */
+  photoId?: Id | null;
   notes: string;
 }
 
@@ -81,6 +86,11 @@ export interface Expense extends BaseEntity {
   odometer: number | null;
   vendor: string;
   description: string;
+  /**
+   * Ссылка на фото чека (файл в data/photos). Поле необязательное: в записях,
+   * сделанных до появления фотографий, его просто нет.
+   */
+  photoId?: Id | null;
   notes: string;
 }
 
