@@ -7,6 +7,7 @@
  */
 
 import fs from 'node:fs';
+import https from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -15,12 +16,17 @@ import { ValidationError } from './validate.ts';
 import { createCollectionRouter } from './routes/crud.ts';
 import { createStatsRouter } from './routes/stats.ts';
 import { createIoRouter } from './routes/io.ts';
+import { buildServerInfo } from './network.ts';
 import type { CollectionName } from '../../shared/types.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
 
 const PORT = Number(process.env.PORT ?? 4000);
+// По умолчанию слушаем все интерфейсы: так телефон в той же сети видит приложение.
+const HOST = process.env.HOST ?? '0.0.0.0';
+const HTTPS_KEY = process.env.HTTPS_KEY;
+const HTTPS_CERT = process.env.HTTPS_CERT;
 const DATA_DIR = process.env.DATA_DIR ?? path.join(repoRoot, 'data');
 const CLIENT_DIST = path.join(repoRoot, 'client', 'dist');
 
@@ -42,7 +48,7 @@ for (const name of collections) {
   app.use(`/api/${name}`, createCollectionRouter(store, name));
 }
 app.use('/api', createStatsRouter(store));
-app.use('/api', createIoRouter(store));
+app.use('/api', createIoRouter(store, { port: PORT, host: HOST }));
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Метод API не найден.' }));
 
@@ -77,11 +83,27 @@ async function closeDatabase(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 50));
 }
 
-const server = app.listen(PORT, () => {
+const protocol: 'http' | 'https' = HTTPS_KEY && HTTPS_CERT ? 'https' : 'http';
+const onListening = () => {
   const mode = fs.existsSync(CLIENT_DIST) ? 'интерфейс + API' : 'только API (интерфейс запускайте через npm run dev)';
-  console.log(`АвтоЖурнал: http://localhost:${PORT} (${mode})`);
+  const info = buildServerInfo(PORT, HOST, protocol);
+  console.log(`АвтоЖурнал: ${info.localUrl} (${mode})`);
+  if (info.lanUrls.length) {
+    console.log('Открыть с телефона в той же сети Wi-Fi:');
+    for (const url of info.lanUrls) console.log(`   ${url}`);
+  } else {
+    console.log('Адрес в локальной сети не найден — возможно, компьютер не подключён к Wi-Fi.');
+  }
   console.log(`Файл базы данных: ${store.filePath}`);
-});
+};
+
+const server =
+  protocol === 'https'
+    ? https.createServer(
+        { key: fs.readFileSync(HTTPS_KEY as string), cert: fs.readFileSync(HTTPS_CERT as string) },
+        app,
+      ).listen(PORT, HOST, onListening)
+    : app.listen(PORT, HOST, onListening);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {

@@ -9,18 +9,22 @@
     "node": ">=18.18"
   },
   "scripts": {
-    "dev": "concurrently -n API,WEB -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "npm run icons --silent && concurrently -n API,WEB -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch server/src/index.ts",
     "dev:web": "vite --config client/vite.config.ts",
-    "build": "npm run typecheck && vite build --config client/vite.config.ts",
+    "build": "npm run typecheck && npm run icons && vite build --config client/vite.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p client/tsconfig.json",
     "start": "node --import tsx server/src/index.ts",
     "start:prod": "NODE_ENV=production node --import tsx server/src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "start:https": "NODE_ENV=production HTTPS_KEY=./.certs/key.pem HTTPS_CERT=./.certs/cert.pem node --import tsx server/src/index.ts",
+    "cert": "node scripts/make-cert.mjs",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

@@ -220,12 +220,17 @@ export function DataTable<T extends { id: string }>({
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map((column) => (
-                <td key={column.key} className={column.align === 'right' ? 'is-right' : undefined}>
+                <td
+                  key={column.key}
+                  // data-label превращает строку таблицы в карточку на узких экранах
+                  data-label={column.title}
+                  className={column.align === 'right' ? 'is-right' : undefined}
+                >
                   {column.render(row)}
                 </td>
               ))}
               {onDelete && (
-                <td className="is-right">
+                <td className="is-right" data-label="Действия">
                   <Button size="sm" variant="ghost" onClick={() => onDelete(row)}>
                     {deleteLabel}
                   </Button>
