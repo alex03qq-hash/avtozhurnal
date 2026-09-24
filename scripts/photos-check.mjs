@@ -50,10 +50,14 @@ check('Нераспознанные данные отклоняются', garbag
 
 const vehicles = await (await api('/api/vehicles')).json();
 const vehicleId = vehicles[0]?.id;
+// Одометр для проверочных записей берём выше любого существующего: сервер не принимает «откат» пробега.
+const existingFuel = await (await api('/api/fuel')).json();
+let nextOdometer = Math.max(0, ...existingFuel.map((row) => Number(row.odometer) || 0)) + 100;
+const takeOdometer = () => (nextOdometer += 100);
 if (!vehicleId) {
   check('Есть автомобиль для проверки', false, 'добавьте автомобиль или демо-данные');
 } else {
-  const odometer = 500000 + Math.floor(Math.random() * 1000);
+  const odometer = takeOdometer();
   const record = await api('/api/fuel', {
     method: 'POST',
     body: JSON.stringify({ vehicleId, date: '2026-09-20', odometer, volume: 20, pricePerUnit: 60, totalCost: 1200, isFullTank: true, photoId: uploadedBody.id }),
@@ -72,7 +76,7 @@ if (!vehicleId) {
 /* ── Главная проверка мысли: данные важнее снимка ── */
 
 const dataPhoto = await (await api('/api/photos', { method: 'POST', body: JSON.stringify({ dataUrl: tinyPng }) })).json();
-const dataOdometer = 700000 + Math.floor(Math.random() * 1000);
+const dataOdometer = takeOdometer();
 const withData = await api('/api/fuel', {
   method: 'POST',
   body: JSON.stringify({
@@ -161,10 +165,8 @@ try {
     check('Фото обработалось и показано в форме', (await ev("!!document.querySelector('.photo-field__preview img')")) === true);
   }
 
-  // Одометр берём больше любого существующего: сервер не принимает «откат» пробега назад.
-  const existing = await (await api('/api/fuel')).json();
-  const nextOdometer = Math.max(0, ...existing.map((row) => Number(row.odometer) || 0)) + 120;
-  await ev(`(() => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; const fill = (label, value) => { const field = [...document.querySelectorAll('.field')].find((f) => f.querySelector('.field__label')?.textContent?.trim().startsWith(label)); const el = field.querySelector('input'); set.call(el, String(value)); el.dispatchEvent(new Event('input', { bubbles: true })); }; fill('Одометр', ${nextOdometer}); fill('Объём', 30); fill('₽ / л', 61); return true; })()`);
+  const uiOdometer = takeOdometer();
+  await ev(`(() => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; const fill = (label, value) => { const field = [...document.querySelectorAll('.field')].find((f) => f.querySelector('.field__label')?.textContent?.trim().startsWith(label)); const el = field.querySelector('input'); set.call(el, String(value)); el.dispatchEvent(new Event('input', { bubbles: true })); }; fill('Одометр', ${uiOdometer}); fill('Объём', 30); fill('₽ / л', 61); return true; })()`);
   await ev("[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Добавить заправку')).click()");
   await sleep(3500);
 
