@@ -17,9 +17,11 @@ import {
   monthlySeries,
   overviewStats,
   periodTotals,
+  priceFromTotal,
   simplifiedConsumption,
   tripCost,
   tripProfit,
+  volumeFromTotal,
   wearStatus,
 } from '../calc';
 import type { Expense, FuelEntry, Income, ServiceRule, Vehicle } from '../types';
@@ -122,6 +124,17 @@ describe('стоимость километра', () => {
   it('стоимость километра только по топливу', () => {
     // 15 132 / 2300 = 6,58
     expect(fuelCostPerKm(15132, 2300)).toBe(6.58);
+  });
+
+  it('считает цену за литр из суммы и объёма', () => {
+    expect(priceFromTotal(2601, 42.5)).toBe(61.2);
+    expect(priceFromTotal(1000, 0)).toBeNull();
+  });
+
+  it('подсказывает объём по сумме и цене АЗС', () => {
+    expect(volumeFromTotal(2601, 61.2)).toBe(42.5);
+    expect(volumeFromTotal(2601, null)).toBeNull();
+    expect(volumeFromTotal(500, 0)).toBeNull();
   });
 
   it('возвращает null при нулевом пробеге вместо бесконечности', () => {
