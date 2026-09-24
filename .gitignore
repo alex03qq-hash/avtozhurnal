@@ -1,0 +1,25 @@
+# зависимости
+node_modules/
+
+# сборка
+client/dist/
+server/dist/
+dist/
+
+# данные приложения (личная база пользователя)
+data/db.json
+data/*.json
+!data/.gitkeep
+
+# окружение и секреты
+.env
+.env.local
+.env.*.local
+
+# системное и служебное
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
+.vite/
+*.tsbuildinfo
