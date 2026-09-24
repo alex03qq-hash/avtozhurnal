@@ -148,6 +148,25 @@ export function costPerKm(fuelCost: number, otherCost: number, distanceKm: numbe
   return value === null ? null : round(value, 2);
 }
 
+/**
+ * Цена за литр из суммы и объёма: то, что видно на чеке.
+ * Нужна, чтобы не заставлять вводить третье число — оно всегда вычисляется.
+ */
+export function priceFromTotal(totalCost: number, volume: number): number | null {
+  const value = safeDivide(totalCost, volume);
+  return value === null ? null : round(value, 2);
+}
+
+/**
+ * Объём из суммы и известной цены — подсказка «сколько литров при прошлой цене».
+ * Это именно подсказка: цена на разных АЗС разная, поэтому введённый вручную объём всегда главнее.
+ */
+export function volumeFromTotal(totalCost: number, pricePerLiter: number | null): number | null {
+  if (pricePerLiter === null || pricePerLiter <= 0) return null;
+  const value = safeDivide(totalCost, pricePerLiter);
+  return value === null ? null : round(value, 2);
+}
+
 /** Стоимость километра только по топливу. */
 export function fuelCostPerKm(fuelCost: number, distanceKm: number): number | null {
   const value = safeDivide(fuelCost, distanceKm);
