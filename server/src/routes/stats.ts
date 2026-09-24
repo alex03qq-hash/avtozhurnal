@@ -12,6 +12,7 @@ import { drivingStyle, ownershipInsight, wearForecast } from '../../../shared/in
 import {
   averageConsumption,
   averageFuelPrice,
+  sum,
   buildReminders,
   categoryBreakdown,
   costPerKm,
@@ -137,6 +138,40 @@ export function createStatsRouter(store: Store): Router {
           return { ...t, estimatedCost: cost, estimatedProfit: t.revenue === null ? null : Math.round((t.revenue - (cost ?? 0)) * 100) / 100 };
         }),
     });
+  });
+
+  /**
+   * Цены по каждой АЗС: нужны, чтобы подсказывать цену при вводе заправки.
+   * На разных заправках цена разная, поэтому история ведётся отдельно по названию.
+   */
+  router.get('/stats/stations', (req, res) => {
+    const s = scope(store.get(), req.query.vehicleId);
+    const byStation = new Map<string, FuelEntry[]>();
+    for (const row of s.fuel) {
+      const name = row.station.trim();
+      if (!name) continue;
+      const list = byStation.get(name) ?? [];
+      list.push(row);
+      byStation.set(name, list);
+    }
+
+    const stations = [...byStation.entries()]
+      .map(([station, rows]) => {
+        const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+        const last = sorted[sorted.length - 1];
+        const liters = sum(rows.map((row) => row.volume));
+        const money = sum(rows.map((row) => row.totalCost));
+        return {
+          station,
+          count: rows.length,
+          lastPrice: last.pricePerUnit,
+          lastDate: last.date,
+          averagePrice: liters > 0 ? Math.round((money / liters) * 100) / 100 : null,
+        };
+      })
+      .sort((a, b) => b.count - a.count || a.station.localeCompare(b.station, 'ru'));
+
+    res.json(stations.slice(0, 25));
   });
 
   /**
