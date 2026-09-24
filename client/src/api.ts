@@ -132,6 +132,11 @@ export const api = {
       averagePrice: number | null;
       trips: Array<Trip & { estimatedCost: number | null; estimatedProfit: number | null }>;
     }>(`/stats/trips${vehicleId ? `?vehicleId=${vehicleId}` : ''}`),
+  stations: (vehicleId?: string) =>
+    request<Array<{ station: string; count: number; lastPrice: number; lastDate: string; averagePrice: number | null }>>(
+      `/stats/stations${vehicleId ? `?vehicleId=${vehicleId}` : ''}`,
+    ),
+
   insights: (vehicleId?: string) =>
     request<{
       kmPerMonth: number;
