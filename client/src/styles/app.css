@@ -2104,3 +2104,76 @@ body.modal-open {
     height: 104px;
   }
 }
+
+
+/* ─────────── Быстрый ввод заправки ─────────── */
+
+.mode-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+}
+
+.mode-switch__item {
+  height: 32px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+
+.mode-switch__item.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Главные числа чека вводим крупно — на телефоне в них легко попасть */
+.input--big {
+  height: 56px;
+  font-size: 22px;
+  font-weight: var(--fw-semibold);
+}
+
+.quick-price {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+
+.quick-price__value {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  color: var(--accent-text);
+}
+
+.quick-price__hint {
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .mode-switch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mode-switch__item {
+    flex: 1;
+  }
+}
