@@ -36,7 +36,21 @@ export function createPhotosRouter(store: Store, photos: PhotoStore): Router {
   router.delete('/photos/:id', ah(async (req, res) => {
     const removed = await photos.remove(req.params.id);
     if (!removed) return res.status(404).json({ error: 'Фото не найдено.' });
-    return res.json({ ok: true, message: 'Фото удалено.' });
+
+    // Ссылки на удалённый снимок убираем из записей: данные записи при этом не теряются,
+    // пропадает только приложение-исходник.
+    let cleared = 0;
+    await store.mutate((db) => {
+      for (const row of [...db.fuel, ...db.expenses]) {
+        if (row.photoId === req.params.id) {
+          row.photoId = null;
+          row.updatedAt = new Date().toISOString();
+          cleared += 1;
+        }
+      }
+    });
+
+    return res.json({ ok: true, cleared, message: 'Фото удалено. Данные записей сохранены.' });
   }));
 
   return router;

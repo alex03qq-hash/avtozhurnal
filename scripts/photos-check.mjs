@@ -69,6 +69,55 @@ if (!vehicleId) {
   check('Вместе с записью удаляется её фото', afterCascade.status === 404, `HTTP ${afterCascade.status}`);
 }
 
+/* ── Главная проверка мысли: данные важнее снимка ── */
+
+const dataPhoto = await (await api('/api/photos', { method: 'POST', body: JSON.stringify({ dataUrl: tinyPng }) })).json();
+const dataOdometer = 700000 + Math.floor(Math.random() * 1000);
+const withData = await api('/api/fuel', {
+  method: 'POST',
+  body: JSON.stringify({
+    vehicleId,
+    date: '2026-09-21',
+    odometer: dataOdometer,
+    volume: 42.5,
+    pricePerUnit: 61.2,
+    totalCost: 2601,
+    isFullTank: true,
+    station: 'Проверочная АЗС',
+    photoId: dataPhoto.id,
+  }),
+});
+const created = await withData.json();
+
+const backup = await (await api('/api/export/json')).json();
+const inBackup = (backup.fuel ?? []).find((row) => row.id === created.id);
+check(
+  'Резервная копия переносит данные чека',
+  Boolean(inBackup) &&
+    inBackup.volume === 42.5 &&
+    inBackup.pricePerUnit === 61.2 &&
+    inBackup.totalCost === 2601 &&
+    inBackup.station === 'Проверочная АЗС' &&
+    inBackup.odometer === dataOdometer,
+  inBackup ? `объём ${inBackup.volume}, цена ${inBackup.pricePerUnit}, сумма ${inBackup.totalCost}` : 'запись не найдена в копии',
+);
+
+const removedPhoto = await api(`/api/photos/${dataPhoto.id}`, { method: 'DELETE' });
+const removedBody = await removedPhoto.json().catch(() => ({}));
+check('Снимок удаляется, ссылка в записи очищается', removedPhoto.status === 200 && removedBody.cleared === 1, `очищено ссылок: ${removedBody.cleared}`);
+
+const afterPhotoLoss = await (await api(`/api/fuel/${created.id}`)).json();
+const dataKept =
+  afterPhotoLoss.volume === 42.5 &&
+  afterPhotoLoss.pricePerUnit === 61.2 &&
+  afterPhotoLoss.totalCost === 2601 &&
+  afterPhotoLoss.date === '2026-09-21' &&
+  afterPhotoLoss.odometer === dataOdometer;
+check('После потери фото все данные записи на месте', dataKept === true, `объём ${afterPhotoLoss.volume}, сумма ${afterPhotoLoss.totalCost}, АЗС ${afterPhotoLoss.station}`);
+
+const overviewAfter = await (await api('/api/stats/overview')).json();
+check('Запись по-прежнему участвует в расчётах', typeof overviewAfter.totalSpend === 'number' && overviewAfter.totalSpend > 0, `всего потрачено ${overviewAfter.totalSpend} ₽`);
+
 /* ── Загрузка фото через интерфейс (как с телефона) ── */
 
 const profile = mkdtempSync(path.join(tmpdir(), 'avtozhurnal-photo-'));
@@ -112,7 +161,10 @@ try {
     check('Фото обработалось и показано в форме', (await ev("!!document.querySelector('.photo-field__preview img')")) === true);
   }
 
-  await ev("(() => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; const fill = (label, value) => { const field = [...document.querySelectorAll('.field')].find((f) => f.querySelector('.field__label')?.textContent?.trim().startsWith(label)); const el = field.querySelector('input'); set.call(el, String(value)); el.dispatchEvent(new Event('input', { bubbles: true })); }; fill('Одометр', 600001); fill('Объём', 30); fill('₽ / л', 61); return true; })()");
+  // Одометр берём больше любого существующего: сервер не принимает «откат» пробега назад.
+  const existing = await (await api('/api/fuel')).json();
+  const nextOdometer = Math.max(0, ...existing.map((row) => Number(row.odometer) || 0)) + 120;
+  await ev(`(() => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set; const fill = (label, value) => { const field = [...document.querySelectorAll('.field')].find((f) => f.querySelector('.field__label')?.textContent?.trim().startsWith(label)); const el = field.querySelector('input'); set.call(el, String(value)); el.dispatchEvent(new Event('input', { bubbles: true })); }; fill('Одометр', ${nextOdometer}); fill('Объём', 30); fill('₽ / л', 61); return true; })()`);
   await ev("[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Добавить заправку')).click()");
   await sleep(3500);
 
