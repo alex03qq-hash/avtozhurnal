@@ -1,0 +1,206 @@
+/* ===========================================================
+   АвтоЖурнал — токены оформления.
+   Пресет 17 Takram («мягкая технологичность»): тёплая бумага,
+   приглушённый тил, мягкие тени, скругления, никакого неона.
+   Только системные шрифты — приложение работает офлайн.
+   =========================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Фон и поверхности */
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --surface-3: #e7e4dc;
+  --overlay: rgba(36, 34, 30, 0.45);
+
+  /* Границы */
+  --border: #e3e0d8;
+  --border-strong: #cecabf;
+
+  /* Текст */
+  --text: #24221e;
+  --text-2: #6b675e;
+  --text-3: #98938a;
+  --on-accent: #ffffff;
+
+  /* Акцент — приглушённый тил */
+  --accent: #2f7d7a;
+  --accent-hover: #276864;
+  --accent-active: #205953;
+  --accent-soft: #e2efed;
+  --accent-text: #256864;
+
+  /* Семантика */
+  --success: #4e8f5b;
+  --success-soft: #e4efe6;
+  --warning: #b9862f;
+  --warning-soft: #f5eddc;
+  --danger: #b85c46;
+  --danger-soft: #f5e5e0;
+
+  /* Серии графиков */
+  --chart-1: #2f7d7a;
+  --chart-2: #c17a56;
+  --chart-3: #7d9a6a;
+  --chart-4: #5a7298;
+  --chart-5: #c9a15a;
+  --chart-6: #8a6a8f;
+  --chart-grid: #e3e0d8;
+  --chart-axis: #98938a;
+  --chart-fill: rgba(47, 125, 122, 0.12);
+
+  /* Радиусы */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Тени */
+  --shadow-xs: 0 1px 2px rgba(35, 33, 29, 0.04);
+  --shadow-sm: 0 1px 3px rgba(35, 33, 29, 0.06), 0 1px 2px rgba(35, 33, 29, 0.04);
+  --shadow-md: 0 4px 12px rgba(35, 33, 29, 0.07), 0 1px 3px rgba(35, 33, 29, 0.05);
+  --shadow-lg: 0 12px 32px rgba(35, 33, 29, 0.1), 0 2px 8px rgba(35, 33, 29, 0.05);
+  --focus-ring: 0 0 0 3px rgba(47, 125, 122, 0.28);
+
+  /* Шкала отступов */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Типографика */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+  --fs-36: 36px;
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-normal: 1.5;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* Лейаут */
+  --layout-max: 1440px;
+  --sidebar-w: 244px;
+  --topbar-h: 58px;
+  --gutter: 24px;
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Тёмная тема — тёплый графит, а не «кибер-синий» */
+  --bg: #1c1b19;
+  --surface: #24221f;
+  --surface-2: #2b2925;
+  --surface-3: #33302b;
+  --overlay: rgba(0, 0, 0, 0.55);
+
+  --border: #3a3733;
+  --border-strong: #4c4841;
+
+  --text: #edeae4;
+  --text-2: #a8a29a;
+  --text-3: #78736b;
+  --on-accent: #0f1a18;
+
+  --accent: #5cbfb4;
+  --accent-hover: #74cfc5;
+  --accent-active: #8adbd2;
+  --accent-soft: #1e3330;
+  --accent-text: #7acfc5;
+
+  --success: #6fbf7e;
+  --success-soft: #1e2e22;
+  --warning: #d9ac5a;
+  --warning-soft: #322a1a;
+  --danger: #e08a72;
+  --danger-soft: #33221d;
+
+  --chart-1: #5cbfb4;
+  --chart-2: #d69a73;
+  --chart-3: #9dbd84;
+  --chart-4: #7f9bc4;
+  --chart-5: #e0be79;
+  --chart-6: #b18ab6;
+  --chart-grid: #33302b;
+  --chart-axis: #78736b;
+  --chart-fill: rgba(92, 191, 180, 0.16);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --focus-ring: 0 0 0 3px rgba(92, 191, 180, 0.3);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-14);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
+}
+
+/* Числа всегда табличные — значения не «дрожат» при обновлении */
+.num,
+.kpi__value,
+.table td.is-right,
+.dossier__table td.is-right {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
