@@ -4,6 +4,8 @@
  */
 
 import { Router } from 'express';
+import qrcode from 'qrcode-generator';
+import { buildServerInfo } from '../network.ts';
 import type { CollectionName, Database, Settings, ThemeName, UnitSystem } from '../../../shared/types.ts';
 import { buildDemoData } from '../demo.ts';
 import { expensesCsv, fuelCsv, incomesCsv } from '../csv.ts';
@@ -14,7 +16,7 @@ import { ah } from './async-handler.ts';
 const THEMES: readonly ThemeName[] = ['light', 'dark', 'system'];
 const UNIT_SYSTEMS: readonly UnitSystem[] = ['metric', 'imperial'];
 
-export function createIoRouter(store: Store): Router {
+export function createIoRouter(store: Store, server: { port: number; host: string } = { port: 4000, host: '0.0.0.0' }): Router {
   const router = Router();
 
   router.get('/health', (_req, res) => {
@@ -32,6 +34,25 @@ export function createIoRouter(store: Store): Router {
       dataFile: store.filePath,
       time: new Date().toISOString(),
     });
+  });
+
+  /** Адреса, по которым приложение доступно с телефона, и признак установки как приложения. */
+  router.get('/network', (req, res) => {
+    const protocol = (req.headers['x-forwarded-proto'] as string) === 'https' || req.protocol === 'https' ? 'https' : 'http';
+    const info = buildServerInfo(server.port, server.host, protocol);
+    res.json({ ...info, installable: true });
+  });
+
+  /** QR-код со ссылкой на приложение: телефон наводит камеру и открывает журнал. */
+  router.get('/network/qr.svg', (req, res) => {
+    const info = buildServerInfo(server.port, server.host, req.protocol === 'https' ? 'https' : 'http');
+    const target = typeof req.query.url === 'string' && req.query.url ? req.query.url : info.lanUrls[0] ?? info.localUrl;
+    const qr = qrcode(0, 'M');
+    qr.addData(target);
+    qr.make();
+    res.type('image/svg+xml');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(qr.createSvgTag({ cellSize: 6, margin: 14, scalable: true }));
   });
 
   router.get('/settings', (_req, res) => res.json(store.get().settings));
