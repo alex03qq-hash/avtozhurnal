@@ -18,7 +18,7 @@ function check(name, ok, detail = '') {
 async function callBytes(path) {
   const response = await fetch(`${BASE}${path}`);
   const buffer = Buffer.from(await response.arrayBuffer());
-  return { status: response.status, buffer };
+  return { status: response.status, buffer, headers: response.headers };
 }
 
 async function call(path, options = {}) {
@@ -86,6 +86,61 @@ for (const type of ['fuel', 'expenses', 'incomes', 'all']) {
     `BOM: ${hasBom ? 'да' : 'нет'}, заголовок: ${header.slice(0, 40)}…`,
   );
 }
+
+/* ── Выводы: стиль вождения, прогноз износа, стоимость владения ── */
+
+const insights = await call(`/api/stats/insights?vehicleId=${vehicleId}`);
+const style = insights.body?.style;
+check(
+  'GET /api/stats/insights отдаёт выводы',
+  insights.status === 200 && Boolean(style) && Array.isArray(insights.body?.forecast) && Boolean(insights.body?.ownership),
+);
+if (style) {
+  // Независимая проверка: множитель износа должен соответствовать отклонению расхода от нормы.
+  const expectedFactor = Math.min(1.35, Math.max(0.85, 1 + (style.deviationPercent / 10) * 0.04));
+  check(
+    'Множитель износа согласуется с отклонением расхода',
+    Math.abs(style.wearFactor - expectedFactor) < 0.05,
+    `отклонение ${style.deviationPercent} %, множитель ${style.wearFactor} (ожидалось около ${expectedFactor.toFixed(2)})`,
+  );
+}
+const forecastWithDates = (insights.body?.forecast ?? []).filter((item) => item.predictedDate);
+check(
+  'У прогноза по деталям есть даты',
+  forecastWithDates.length > 0 && forecastWithDates.every((item) => /^\d{4}-\d{2}-\d{2}$/.test(item.predictedDate)),
+  `с датами: ${forecastWithDates.length} из ${(insights.body?.forecast ?? []).length}`,
+);
+check(
+  'Вывод по продаже помечен как ориентир, а не рекомендация',
+  typeof insights.body?.ownership?.explanation === 'string' && insights.body.ownership.explanation.includes('не финансовая рекомендация'),
+  insights.body?.ownership?.verdict,
+);
+
+/* ── Календарь напоминаний о ТО ── */
+
+const calendar = await callBytes(`/api/reminders/calendar.ics?vehicleId=${vehicleId}`);
+const ics = calendar.buffer.toString('utf8');
+const eventCount = (ics.match(/BEGIN:VEVENT/g) ?? []).length;
+check(
+  'Файл календаря напоминаний отдаётся как text/calendar',
+  calendar.status === 200 && String(calendar.headers.get('content-type')).startsWith('text/calendar'),
+  `HTTP ${calendar.status}, тип ${calendar.headers.get('content-type')}`,
+);
+check(
+  'Файл календаря структурно корректен',
+  ics.startsWith('BEGIN:VCALENDAR\r\n') && ics.trimEnd().endsWith('END:VCALENDAR') && ics.includes('VERSION:2.0'),
+);
+check('Строки разделены по стандарту формата (CRLF)', ics.includes('\r\n') && !/[^\r]\n/.test(ics));
+check(
+  'Событий столько же, сколько регламентов ТО',
+  eventCount === (reminders.body?.items?.length ?? -1),
+  `событий: ${eventCount}, регламентов: ${reminders.body?.items?.length}`,
+);
+check(
+  'В каждом событии есть дата и предупреждение заранее',
+  ics.includes('DTSTART;VALUE=DATE:') && (ics.match(/TRIGGER:-P\d+D/g) ?? []).length === eventCount,
+  `напоминаний: ${(ics.match(/TRIGGER:-P\d+D/g) ?? []).length}`,
+);
 
 const backup = await call('/api/export/json');
 check('GET /api/export/json отдаёт бэкап со всеми коллекциями', backup.status === 200 && Array.isArray(backup.body?.fuel), `записей топлива: ${backup.body?.fuel?.length}`);

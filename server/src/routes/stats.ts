@@ -6,7 +6,9 @@
 
 import { Router } from 'express';
 import { EXPENSE_CATEGORY_LABELS, FUEL_TYPE_LABELS, fuelUnit } from '../../../shared/constants.ts';
-import { formatDate, monthKey } from '../../../shared/format.ts';
+import { addDays, daysBetween, formatDate, monthKey, todayISO } from '../../../shared/format.ts';
+import { buildCalendar, type CalendarEvent } from '../../../shared/calendar.ts';
+import { drivingStyle, ownershipInsight, wearForecast } from '../../../shared/insights.ts';
 import {
   averageConsumption,
   averageFuelPrice,
@@ -21,6 +23,7 @@ import {
   periodTotals,
 } from '../../../shared/calc.ts';
 import type { Database, Expense, FuelEntry, Income, Part, ServiceRule, Trip, Vehicle } from '../../../shared/types.ts';
+import { ValidationError } from '../validate.ts';
 import type { Store } from '../store.ts';
 
 interface Scoped {
@@ -45,6 +48,22 @@ function scope(db: Database, vehicleIdRaw: unknown): Scoped {
     parts: db.parts.filter((p) => p.vehicleId === vehicleId),
     rules: db.rules.filter((r) => r.vehicleId === vehicleId),
   };
+}
+
+/**
+ * Средний дневной пробег: нужен, чтобы перевести «осталось 900 км» в конкретную дату
+ * и поставить напоминание в календарь телефона.
+ */
+function averageDailyDistance(fuel: FuelEntry[], currentOdometerValue: number): number {
+  const rows = [...fuel].sort((a, b) => a.odometer - b.odometer);
+  if (rows.length >= 2) {
+    const days = Math.max(1, daysBetween(rows[0].date, rows[rows.length - 1].date));
+    const distance = currentOdometerValue - rows[0].odometer;
+    const perDay = distance / days;
+    // Отсекаем явно неправдоподобные значения — иначе дата напоминания уедет на годы.
+    if (perDay > 1 && perDay < 1000) return Math.round(perDay * 10) / 10;
+  }
+  return 40;
 }
 
 export function createStatsRouter(store: Store): Router {
@@ -118,6 +137,105 @@ export function createStatsRouter(store: Store): Router {
           return { ...t, estimatedCost: cost, estimatedProfit: t.revenue === null ? null : Math.round((t.revenue - (cost ?? 0)) * 100) / 100 };
         }),
     });
+  });
+
+  /**
+   * Выводы: стиль вождения, прогноз износа с датами и стоимость владения.
+   * Всё считается по данным пользователя и помечено как оценка.
+   */
+  router.get('/stats/insights', (req, res) => {
+    const s = scope(store.get(), req.query.vehicleId);
+    if (!s.vehicle) return res.status(404).json({ error: 'Автомобиль не выбран.' });
+
+    const today = todayISO();
+    const odometer = currentOdometer(s.vehicle, s.fuel, s.expenses);
+    const consumption = averageConsumption(s.fuel);
+
+    // Темп пробега: сколько километров в месяц проезжает машина.
+    const dates = s.fuel.map((row) => row.date).sort();
+    const months = dates.length ? Math.max(1, daysBetween(dates[0], today) / 30.44) : 1;
+    const firstOdometer = Math.min(s.vehicle.initialOdometer, ...s.fuel.map((row) => row.odometer));
+    const kmPerMonth = Math.max(0, Math.round(((odometer - firstOdometer) / months) * 10) / 10);
+
+    const style = drivingStyle(s.fuel, s.vehicle, consumption.value, kmPerMonth);
+    const reminders = buildReminders(s.rules, odometer);
+    const forecast = wearForecast(reminders, style, kmPerMonth, today);
+
+    // Стоимость километра три месяца назад — чтобы увидеть, дорожает ли владение.
+    const before = addDays(today, -90);
+    const fuelBefore = s.fuel.filter((row) => row.date <= before).sort((a, b) => a.odometer - b.odometer);
+    const totalsBefore = periodTotals(fuelBefore, s.expenses.filter((row) => row.date <= before), [], undefined, before);
+    const distanceBefore = fuelBefore.length >= 2 ? fuelBefore[fuelBefore.length - 1].odometer - fuelBefore[0].odometer : 0;
+    const costPerKmBefore = distanceBefore > 0 ? costPerKm(totalsBefore.fuelCost, totalsBefore.otherCost, distanceBefore) : null;
+
+    const allTotals = periodTotals(s.fuel, s.expenses, []);
+    const totalDistance = Math.max(0, odometer - s.vehicle.initialOdometer);
+    const ownership = ownershipInsight(
+      monthlySeries(s.fuel, s.expenses, 6),
+      { costPerKm: costPerKm(allTotals.fuelCost, allTotals.otherCost, totalDistance), distanceKm: totalDistance },
+      { costPerKmBefore },
+    );
+
+    res.json({
+      kmPerMonth,
+      currentOdometer: Math.round(odometer),
+      style,
+      forecast: forecast.map((item) => ({ ...item, status: item.status })),
+      ownership: { ...ownership, monthly: monthlySeries(s.fuel, s.expenses, 6) },
+    });
+  });
+
+  /**
+   * Файл календаря с ближайшими сроками ТО.
+   * Добавив его в календарь телефона один раз, владелец получает обычные системные напоминания.
+   */
+  router.get('/reminders/calendar.ics', (req, res) => {
+    const s = scope(store.get(), req.query.vehicleId);
+    if (!s.vehicle) throw new ValidationError('Автомобиль не выбран.');
+
+    const odometer = currentOdometer(s.vehicle, s.fuel, s.expenses);
+    const items = buildReminders(s.rules, odometer);
+    const perDay = averageDailyDistance(s.fuel, odometer);
+    const today = todayISO();
+    const vehicleName = s.vehicle.name;
+
+    const events: CalendarEvent[] = [];
+    for (const item of items) {
+      const rule = s.rules.find((r) => r.id === item.ruleId);
+      if (!rule) continue;
+
+      // Дата: точная дата регламента, иначе — прогноз по среднему пробегу.
+      let date = item.nextServiceDate ?? null;
+      if (!date && item.remainingKm !== null) date = addDays(today, Math.max(0, Math.round(item.remainingKm / perDay)));
+      if (!date) continue;
+      // Просроченное ставим на сегодня, чтобы календарь напомнил сразу.
+      if (date < today) date = today;
+
+      const details: string[] = [];
+      if (item.remainingKm !== null) {
+        details.push(item.remainingKm >= 0 ? `Осталось ${Math.round(item.remainingKm)} км` : `Просрочено на ${Math.round(Math.abs(item.remainingKm))} км`);
+      }
+      if (item.remainingDays !== null) {
+        details.push(item.remainingDays >= 0 ? `по дате: через ${item.remainingDays} дн.` : `по дате: ${Math.abs(item.remainingDays)} дн. назад`);
+      }
+      if (item.percentUsed !== null) details.push(`износ ${item.percentUsed.toFixed(0)} %`);
+      details.push(`текущий пробег ${Math.round(odometer)} км`);
+
+      events.push({
+        uid: `${rule.id}@avtozhurnal`,
+        date,
+        summary: `АвтоЖурнал · ${rule.name} (${vehicleName})`,
+        description: details.join(' · '),
+        remindDaysBefore: Math.max(1, rule.warnDaysBefore || 3),
+      });
+    }
+
+    const stamp = `${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`;
+    const body = buildCalendar(events, { name: `АвтоЖурнал — ${vehicleName}`, stamp });
+
+    res.type('text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="avtozhurnal-napominaniya.ics"');
+    res.send(body);
   });
 
   /** Авто-досье — агрегированные данные для отчёта о машине (печать в PDF из интерфейса). */
