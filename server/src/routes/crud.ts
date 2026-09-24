@@ -33,7 +33,7 @@ function collectionOf(db: Database, name: CollectionName): Record_[] {
   return db[name] as unknown as Record_[];
 }
 
-export function createCollectionRouter(store: Store, name: CollectionName): Router {
+export function createCollectionRouter(store: Store, name: CollectionName, onRecordRemoved?: (row: Record_) => void): Router {
   const router = Router();
 
   /** Список записей; ?vehicleId=… фильтрует по автомобилю. */
@@ -98,7 +98,9 @@ export function createCollectionRouter(store: Store, name: CollectionName): Rout
       // Проверяем индекс обязательно: splice(-1, 1) удалил бы последнюю запись вместо ошибки.
       if (index === -1) return { notFound: true as const, removed: {} as Record<string, number> };
 
-      rows.splice(index, 1);
+      const [removedRow] = rows.splice(index, 1);
+      // Фото чека живёт отдельным файлом — удаляем вместе с записью.
+      if (removedRow?.photoId) onRecordRemoved?.(removedRow);
       const removed: Record<string, number> = {};
 
       // Удаление автомобиля тянет за собой все связанные записи.
