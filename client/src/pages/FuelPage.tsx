@@ -62,6 +62,9 @@ export default function FuelPage() {
   const [photoId, setPhotoId] = useState<string | null>(null);
   // Быстрый режим: главное на чеке — сумма и объём, цена за литр считается сама.
   const [mode, setMode] = useState<'quick' | 'full'>('quick');
+  // Иногда чек есть, а объём не записан. Тогда его можно подставить по цене этой же АЗС —
+  // но только осознанно, включив галочку: молча выдумывать данные нельзя.
+  const [autoVolume, setAutoVolume] = useState(false);
   const stations = useLoad(() => api.stations(vehicleId), [vehicleId], []);
   const [busy, setBusy] = useState(false);
 
@@ -90,7 +93,9 @@ export default function FuelPage() {
 
   const buildPayload = (source: FormState) => {
     const total = Number(source.totalCost.replace(',', '.')) || quick;
-    const volume = Number(source.volume.replace(',', '.')) || 0;
+    let volume = Number(source.volume.replace(',', '.')) || 0;
+    // Объём не введён, но включена подстановка и известна цена АЗС — берём оценку.
+    if (!volume && autoVolume && mode === 'quick') volume = suggestedVolume ?? 0;
     // В быстром режиме цену за литр не спрашиваем: сервер посчитает её из суммы и объёма.
     const price = mode === 'quick' ? 0 : toStoredPrice(Number(source.pricePerUnit.replace(',', '.')) || 0, unitSystem);
     return {
@@ -249,6 +254,15 @@ export default function FuelPage() {
                     <Button size="sm" variant="secondary" onClick={() => setForm({ ...form, volume: String(suggestedVolume) })}>
                       подставить
                     </Button>
+                  </span>
+                )}
+                {stationInfo && (
+                  <span className="quick-price__hint">
+                    <Checkbox
+                      label="Вводить только сумму: объём подставлять по цене этой АЗС"
+                      checked={autoVolume}
+                      onChange={(e) => setAutoVolume(e.target.checked)}
+                    />
                   </span>
                 )}
               </div>
