@@ -1,11 +1,12 @@
 /** Настройки: автомобили, оформление, единицы измерения, бэкап, демо-данные. */
 
 import React, { useRef, useState } from 'react';
-import { api, csvUrl, jsonUrl } from '../api.ts';
+import { api, calendarUrl, csvUrl, jsonUrl, qrUrl } from '../api.ts';
 import { useApp } from '../store.tsx';
 import { useLoad } from '../hooks/useLoad.ts';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Loader, Modal, NumberInput, Select, TextInput } from '../ui.tsx';
 import { useInstallPrompt } from '../hooks/useInstallPrompt.ts';
+import { useMaintenanceAlerts } from '../hooks/useMaintenanceAlerts.ts';
 import { formatDate } from '../../../shared/format.ts';
 import { FUEL_TYPE_LABELS, UNIT_SYSTEM_LABELS } from '../../../shared/constants.ts';
 import type { Database, ThemeName, UnitSystem, Vehicle } from '../../../shared/types.ts';
@@ -32,7 +33,9 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const fileInput = useRef<HTMLInputElement>(null);
+  const { signOut } = useApp();
   const install = useInstallPrompt();
+  const alerts = useMaintenanceAlerts(activeVehicle?.id);
   const network = useLoad(() => api.network(), [], null);
 
   const addVehicle = async (event: React.FormEvent) => {
@@ -283,6 +286,100 @@ export default function SettingsPage() {
       </div>
 
       <Card
+        title="Напоминания на телефон"
+        subtitle="Чтобы не пропустить замену масла, колодок или продление страховки"
+      >
+        <div className="reminder-grid">
+          <div className="reminder-grid__col">
+            <h3 className="settings-subtitle">Календарь телефона — основной путь</h3>
+            <ol className="install-steps">
+              <li>Скачайте файл напоминаний на телефон (кнопка ниже).</li>
+              <li>Откройте его — календарь предложит добавить события.</li>
+              <li>
+                Готово: телефон напомнит о каждом сроке заранее. Даты для регламентов «по пробегу»
+                рассчитаны по вашему среднему пробегу в день.
+              </li>
+            </ol>
+            <div className="button-row">
+              <a className="btn btn--primary btn--md" href={calendarUrl(activeVehicle?.id)} download>
+                Скачать напоминания (.ics)
+              </a>
+              {alerts.supported && alerts.permission !== 'granted' && (
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    const result = await alerts.request();
+                    notify(
+                      result === 'granted'
+                        ? 'Уведомления включены: при открытом приложении срочные замены будут показываться сразу.'
+                        : result === 'unsupported'
+                          ? 'Этот браузер не умеет показывать уведомления — пользуйтесь календарём.'
+                          : 'Разрешение на уведомления не выдано.',
+                      result === 'granted' ? 'success' : 'info',
+                    );
+                  }}
+                >
+                  Включить уведомления
+                </Button>
+              )}
+            </div>
+            <p className="hint-line">
+              Состояние уведомлений:{' '}
+              {!alerts.supported
+                ? 'браузер их не поддерживает'
+                : alerts.permission === 'granted'
+                  ? 'включены'
+                  : alerts.permission === 'denied'
+                    ? 'запрещены в настройках браузера'
+                    : 'ещё не запрашивались'}
+              .
+            </p>
+          </div>
+          <div className="reminder-grid__col">
+            <h3 className="settings-subtitle">Честно о push-уведомлениях</h3>
+            <InfoNote>
+              Уведомление при <strong>закрытом</strong> приложении требует внешнего push-сервиса и
+              постоянного интернета — для локального журнала это лишняя зависимость. Поэтому основной путь —
+              календарь: он даёт ровно те же системные напоминания, но без сторонних сервисов.
+              Уведомление в приложении работает, когда журнал открыт.
+            </InfoNote>
+          </div>
+        </div>
+      </Card>
+
+      <Card
+        title="Доступ к журналу"
+        subtitle="Пока компьютер и телефон в одной сети Wi-Fi, журнал по умолчанию открыт всем в этой сети"
+        actions={
+          network.data?.authEnabled ? (
+            <Button size="sm" variant="ghost" onClick={signOut}>
+              Выйти из журнала
+            </Button>
+          ) : undefined
+        }
+      >
+        {network.data?.authEnabled ? (
+          <>
+            <p className="hint-line">
+              Код доступа включён: без него данные не отдаются, а на телефоне показывается экран входа.
+              Код хранится только в браузере телефона и в переменной окружения на компьютере.
+            </p>
+            <InfoNote>
+              Чтобы сменить код — измените <code>ACCESS_TOKEN</code> в файле <code>.env</code> и перезапустите
+              приложение; чтобы снять защиту — удалите эту переменную. Если код забыт, отключите его на компьютере,
+              а затем войдите заново на телефоне.
+            </InfoNote>
+          </>
+        ) : (
+          <InfoNote>
+            Код доступа не задан: журнал открыт любому, кто подключён к вашему Wi-Fi. Чтобы включить защиту,
+            добавьте в файл <code>.env</code> строку <code>ACCESS_TOKEN=ваш-код</code> и перезапустите приложение
+            (<code>npm start</code>). После этого на телефоне появится экран входа.
+          </InfoNote>
+        )}
+      </Card>
+
+      <Card
         title="Установка на телефон"
         subtitle="Телефон открывает журнал по Wi-Fi, а приложение ставится на домашний экран и работает как обычное"
       >
@@ -352,7 +449,7 @@ export default function SettingsPage() {
             <div className="install-grid__qr">
               <img
                 className="install-qr"
-                src={`/api/network/qr.svg?url=${encodeURIComponent(network.data.lanUrls[0])}`}
+                src={qrUrl(network.data.lanUrls[0])}
                 alt={`QR-код со ссылкой ${network.data.lanUrls[0]}`}
                 width={220}
                 height={220}
