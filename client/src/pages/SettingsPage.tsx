@@ -245,6 +245,12 @@ export default function SettingsPage() {
         </Card>
 
         <Card title="Экспорт и бэкап" subtitle="CSV для Excel, JSON для полного сохранения и переноса">
+          <InfoNote>
+            В резервную копию попадают <strong>данные</strong>: суммы, объёмы и цены, даты, показания одометра,
+            категории, регламенты ТО и настройки. Смысл чека — в этих цифрах, поэтому запись остаётся полной
+            и без снимка. Фотографии чеков — исходники: они лежат отдельными файлами в <code>data/photos</code>
+            и в бэкап не входят. Хотите перенести и их — скопируйте папку вместе с файлом базы.
+          </InfoNote>
           <div className="button-row">
             <a className="btn btn--secondary btn--md" href={csvUrl(activeVehicle?.id, 'fuel')} download>
               CSV: заправки
