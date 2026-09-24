@@ -3,12 +3,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.ts';
 import { useApp } from '../store.tsx';
-import { useCollection } from '../hooks/useLoad.ts';
+import { useCollection, useLoad } from '../hooks/useLoad.ts';
 import { Badge, Button, Card, Checkbox, DataTable, EmptyState, ErrorNote, Field, Loader, Modal, NumberInput, Select, TextInput } from '../ui.tsx';
 import { formatDate, formatMoney, formatNumber, formatOdometer, todayISO } from '../../../shared/format.ts';
 import { FUEL_TYPE_LABELS } from '../../../shared/constants.ts';
 import type { FuelEntry } from '../../../shared/types.ts';
 import { priceLabel, toDisplayDistance, toDisplayPrice, toDisplayVolume, toStoredDistance, toStoredPrice, toStoredVolume, volumeLabel } from '../utils/units.ts';
+import { priceFromTotal, volumeFromTotal } from '../../../shared/calc.ts';
 import { useHashParam } from '../router.ts';
 import PhotoField from '../components/PhotoField.tsx';
 import { photoUrl } from '../api.ts';
@@ -59,12 +60,25 @@ export default function FuelPage() {
   }, [startNew]);
   const [editing, setEditing] = useState<FuelEntry | null>(null);
   const [photoId, setPhotoId] = useState<string | null>(null);
+  // Быстрый режим: главное на чеке — сумма и объём, цена за литр считается сама.
+  const [mode, setMode] = useState<'quick' | 'full'>('quick');
+  const stations = useLoad(() => api.stations(vehicleId), [vehicleId], []);
   const [busy, setBusy] = useState(false);
 
   const lastOdometer = useMemo(() => {
     const values = rows.map((row) => row.odometer);
     return values.length ? Math.max(...values) : activeVehicle?.initialOdometer ?? 0;
   }, [rows, activeVehicle?.initialOdometer]);
+
+  const stationInfo = useMemo(
+    () => stations.data.find((row) => row.station.trim().toLowerCase() === form.station.trim().toLowerCase()) ?? null,
+    [stations.data, form.station],
+  );
+
+  const totalNumber = Number(form.totalCost.replace(',', '.')) || 0;
+  const volumeNumber = Number(form.volume.replace(',', '.')) || 0;
+  const priceFromInputs = priceFromTotal(totalNumber, volumeNumber);
+  const suggestedVolume = volumeNumber ? null : volumeFromTotal(totalNumber, stationInfo?.lastPrice ?? null);
 
   const quick = useMemo(() => {
     const volume = Number(form.volume.replace(',', '.')) || 0;
@@ -74,19 +88,25 @@ export default function FuelPage() {
     return Math.round(volume * price * 100) / 100;
   }, [form.volume, form.pricePerUnit, form.totalCost]);
 
-  const buildPayload = (source: FormState) => ({
-    vehicleId,
-    date: source.date,
-    odometer: toStoredDistance(Number(source.odometer.replace(',', '.')) || 0, unitSystem),
-    volume: toStoredVolume(Number(source.volume.replace(',', '.')) || 0, unitSystem),
-    pricePerUnit: toStoredPrice(Number(source.pricePerUnit.replace(',', '.')) || 0, unitSystem),
-    totalCost: Number(source.totalCost.replace(',', '.')) || quick,
-    fuelType: source.fuelType,
-    isFullTank: source.isFullTank,
-    station: source.station,
-    photoId,
-    notes: source.notes,
-  });
+  const buildPayload = (source: FormState) => {
+    const total = Number(source.totalCost.replace(',', '.')) || quick;
+    const volume = Number(source.volume.replace(',', '.')) || 0;
+    // В быстром режиме цену за литр не спрашиваем: сервер посчитает её из суммы и объёма.
+    const price = mode === 'quick' ? 0 : toStoredPrice(Number(source.pricePerUnit.replace(',', '.')) || 0, unitSystem);
+    return {
+      vehicleId,
+      date: source.date,
+      odometer: toStoredDistance(Number(source.odometer.replace(',', '.')) || 0, unitSystem),
+      volume: toStoredVolume(volume, unitSystem),
+      pricePerUnit: price,
+      totalCost: total,
+      fuelType: source.fuelType,
+      isFullTank: source.isFullTank,
+      station: source.station,
+      photoId,
+      notes: source.notes,
+    };
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -150,7 +170,91 @@ export default function FuelPage() {
         title="Быстрая запись"
         subtitle={startNew ? 'Открыто быстрым действием: введите показание одометра' : 'Заполните объём и цену — сумма посчитается сама'}
       >
+        <div className="mode-switch">
+          <button
+            type="button"
+            className={`mode-switch__item ${mode === 'quick' ? 'is-active' : ''}`}
+            onClick={() => setMode('quick')}
+          >
+            Быстро: сумма и объём
+          </button>
+          <button
+            type="button"
+            className={`mode-switch__item ${mode === 'full' ? 'is-active' : ''}`}
+            onClick={() => setMode('full')}
+          >
+            Подробно: все поля
+          </button>
+        </div>
+
         <form className="form-grid" onSubmit={submit}>
+          {mode === 'quick' ? (
+            <>
+              <Field label="Сумма по чеку, ₽" hint="главное число из чека">
+                <NumberInput
+                  className="input--big"
+                  value={form.totalCost}
+                  onChange={(e) => setForm({ ...form, totalCost: e.target.value })}
+                  inputMode="decimal"
+                />
+              </Field>
+              <Field label={`Объём, ${volumeLabel(unitSystem, isElectric)}`} hint="без него не считается расход">
+                <NumberInput
+                  className="input--big"
+                  value={form.volume}
+                  onChange={(e) => setForm({ ...form, volume: e.target.value })}
+                />
+              </Field>
+              <Field label="АЗС" hint={stationInfo ? `здесь в среднем ${formatMoney(stationInfo.averagePrice)} за литр` : 'начните вводить название'}>
+                <TextInput
+                  list="station-list"
+                  value={form.station}
+                  onChange={(e) => setForm({ ...form, station: e.target.value })}
+                  placeholder="Лукойл, Газпромнефть…"
+                />
+                <datalist id="station-list">
+                  {stations.data.map((row) => (
+                    <option key={row.station} value={row.station} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field
+                label="Одометр, км"
+                hint={`в прошлый раз: ${formatOdometer(toDisplayDistance(lastOdometer, unitSystem))}`}
+              >
+                <NumberInput
+                  inputRef={odometerRef}
+                  value={form.odometer}
+                  onChange={(e) => setForm({ ...form, odometer: e.target.value })}
+                  placeholder={String(Math.round(toDisplayDistance(lastOdometer, unitSystem)))}
+                />
+              </Field>
+
+              <div className="form-grid__wide quick-price">
+                <span className="quick-price__value">
+                  {priceFromInputs !== null ? `Цена: ${formatMoney(priceFromInputs)} за литр` : 'Цена за литр посчитается из суммы и объёма'}
+                </span>
+                {stationInfo && (
+                  <span className="quick-price__hint">
+                    На АЗС «{stationInfo.station}» в прошлый раз было {formatMoney(stationInfo.lastPrice)} за литр
+                    {' '}({formatDate(stationInfo.lastDate)}).
+                  </span>
+                )}
+                {suggestedVolume !== null && (
+                  <span className="quick-price__hint">
+                    При прошлой цене {formatMoney(stationInfo?.lastPrice ?? null)} сумма {formatMoney(totalNumber)} — это
+                    {' '}
+                    <strong>{formatNumber(suggestedVolume, 1)} л</strong>
+                    {' '}
+                    <Button size="sm" variant="secondary" onClick={() => setForm({ ...form, volume: String(suggestedVolume) })}>
+                      подставить
+                    </Button>
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
           <Field label="Дата">
             <TextInput type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
           </Field>
@@ -182,8 +286,21 @@ export default function FuelPage() {
             </Select>
           </Field>
           <Field label="АЗС">
-            <TextInput value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })} placeholder="Лукойл, Газпромнефть…" />
+            <TextInput
+              list="station-list"
+              value={form.station}
+              onChange={(e) => setForm({ ...form, station: e.target.value })}
+              placeholder="Лукойл, Газпромнефть…"
+            />
+            <datalist id="station-list">
+              {stations.data.map((row) => (
+                <option key={row.station} value={row.station} />
+              ))}
+            </datalist>
           </Field>
+            </>
+          )}
+
           <div className="form-grid__wide form-actions">
             <Checkbox
               label="Заправка до полного бака (нужно для точного расхода)"
@@ -191,9 +308,10 @@ export default function FuelPage() {
               onChange={(e) => setForm({ ...form, isFullTank: e.target.checked })}
             />
             <PhotoField photoId={photoId} onChange={setPhotoId} onError={(message) => notify(message, 'error')} />
+            <p className="form-hint">Фото — это исходник. В резервную копию попадают данные, а не снимок: внесите объём и сумму из чека, и запись будет полной даже без фотографии.</p>
           </div>
-          <div className="form-grid__wide">
-            <p className="form-hint">Фото — это исходник. В резервную копию попадают данные, а не снимок: внесите объём и сумму из чека, и запись будет полной даже без фотографии.</p><div className="form-grid__wide"></div>
+          <div className="form-grid__wide form-actions">
+            <span className="hint-line">Дата: {formatDate(form.date)}</span>
             <Button variant="primary" type="submit" disabled={busy || !vehicleId}>
               Добавить заправку
             </Button>
