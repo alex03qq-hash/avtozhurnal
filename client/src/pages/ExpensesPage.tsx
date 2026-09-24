@@ -1,7 +1,7 @@
 /** Расходы: ТО, ремонт, страховка, налоги, мойка, шины, штрафы и прочее. */
 
 import React, { useState } from 'react';
-import { api } from '../api.ts';
+import { api, photoUrl } from '../api.ts';
 import { useApp } from '../store.tsx';
 import { useCollection } from '../hooks/useLoad.ts';
 import { Badge, Button, Card, DataTable, EmptyState, ErrorNote, Field, Loader, NumberInput, Select, TextInput } from '../ui.tsx';
@@ -9,6 +9,7 @@ import { formatDate, formatMoney, formatOdometer, todayISO } from '../../../shar
 import { EXPENSE_CATEGORY_LABELS, EXPENSE_CATEGORY_ORDER } from '../../../shared/constants.ts';
 import type { Expense } from '../../../shared/types.ts';
 import { toDisplayDistance, toStoredDistance } from '../utils/units.ts';
+import PhotoField from '../components/PhotoField.tsx';
 
 export default function ExpensesPage() {
   const { activeVehicle, unitSystem, notify } = useApp();
@@ -24,6 +25,7 @@ export default function ExpensesPage() {
     notes: '',
   });
   const [busy, setBusy] = useState(false);
+  const [photoId, setPhotoId] = useState<string | null>(null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -38,10 +40,12 @@ export default function ExpensesPage() {
         odometer: form.odometer ? toStoredDistance(Number(form.odometer.replace(',', '.')), unitSystem) : null,
         vendor: form.vendor,
         description: form.description,
+        photoId,
         notes: form.notes,
       });
       notify('Расход добавлен.', 'success');
       setForm({ ...form, amount: '', description: '', notes: '' });
+      setPhotoId(null);
       await reload();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Не удалось сохранить расход.', 'error');
@@ -94,6 +98,7 @@ export default function ExpensesPage() {
             <TextInput value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Замена масла и фильтров" />
           </Field>
           <div className="form-grid__wide form-actions">
+            <PhotoField photoId={photoId} onChange={setPhotoId} onError={(message) => notify(message, 'error')} />
             <span className="hint-line">Всего расходов: {formatMoney(total)}</span>
             <Button variant="primary" type="submit" disabled={busy || !vehicleId}>
               Добавить расход
@@ -123,6 +128,18 @@ export default function ExpensesPage() {
                 render: (row) => (row.odometer === null ? '—' : formatOdometer(toDisplayDistance(row.odometer, unitSystem), '')),
               },
               { key: 'amount', title: 'Сумма', align: 'right', render: (row) => formatMoney(row.amount) },
+              {
+                key: 'photo',
+                title: 'Чек',
+                render: (row) =>
+                  row.photoId ? (
+                    <a href={photoUrl(row.photoId)} target="_blank" rel="noreferrer" className="photo-thumb">
+                      <img src={photoUrl(row.photoId)} alt="Фото чека" />
+                    </a>
+                  ) : (
+                    '—'
+                  ),
+              },
             ]}
           />
         )}
