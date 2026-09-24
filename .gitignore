@@ -16,6 +16,9 @@ data/*.json
 .env.local
 .env.*.local
 
+# сертификаты для https (локальные, не для публикации)
+.certs/
+
 # системное и служебное
 .DS_Store
 *.log
