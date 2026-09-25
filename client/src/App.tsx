@@ -17,6 +17,7 @@ import PartsPage from './pages/PartsPage.tsx';
 import ChecklistPage from './pages/ChecklistPage.tsx';
 import DossierPage from './pages/DossierPage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
+import ImportPage from './pages/ImportPage.tsx';
 import LoginScreen from './LoginScreen.tsx';
 import { useMaintenanceAlerts } from './hooks/useMaintenanceAlerts.ts';
 import { currentRoute, useHashRoute } from './router.ts';
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { id: 'parts', label: 'Запчасти', hint: 'Склад и артикулы', icon: '⚙' },
   { id: 'checklist', label: 'Чек-лист', hint: 'Проверка перед выездом', icon: '✓' },
   { id: 'dossier', label: 'Авто-досье', hint: 'Отчёт для продажи', icon: '📄' },
+  { id: 'import', label: 'Импорт', hint: 'Перенос истории из АЗС и банка', icon: '📥' },
   { id: 'settings', label: 'Настройки', hint: 'Данные и оформление', icon: '⚙' },
 ];
 
@@ -105,6 +107,8 @@ export default function App() {
         return <ChecklistPage />;
       case 'dossier':
         return <DossierPage />;
+      case 'import':
+        return <ImportPage />;
       case 'settings':
         return <SettingsPage />;
       default:
