@@ -1,0 +1,155 @@
+{
+  "_comment": "Набор стартовых пакетов регламентов ТО. Интервалы взяты ИЗ ОТКРЫТЫХ ИСТОЧНИКОВ (дилерские сетки обслуживания, клубные таблицы). Первоисточник производителя (сервисная книжка или руководство с таблицей ТО) в открытом доступе получить не удалось, поэтому это НЕ официальная рекомендация: проверьте регламент для своего VIN, двигателя и рынка. Импорт: Настройки → «Импорт пакета регламентов».",
+  "packs": [
+    {
+      "schemaVersion": 1,
+      "revision": 1,
+      "packId": "lada.vesta.2015-2030.petrol",
+      "title": "Lada Vesta (с 2015), бензин — по открытым источникам",
+      "source": "public-data",
+      "sourceUrl": "Дилерские сетки ТО Lada Vesta; официальное руководство по эксплуатации Vesta (проверка фреона кондиционера каждые 30 000 км: major-lada.ru/files/resources/pdf/vesta_sedan/lada_vesta_re_20_06_2018.pdf)",
+      "vendor": "Lada",
+      "models": ["Vesta"],
+      "yearFrom": 2015,
+      "yearTo": 2030,
+      "fuelTypes": ["petrol"],
+      "engineCodes": ["21129", "21179", "H4M"],
+      "usageMultiplier": { "highway": 1, "normal": 1, "city": 0.85, "severe": 0.7, "taxi": 0.6 },
+      "disclaimer": "Интервалы собраны из открытых источников (дилерские сетки обслуживания). Первоисточник производителя в открытом доступе недоступен: полный регламент указан в сервисной книжке автомобиля. Проверьте интервалы для своего VIN, двигателя и условий эксплуатации. Это не официальная рекомендация производителя.",
+      "items": [
+        {
+          "code": "service-visit",
+          "name": "Плановое ТО (по сервисной книжке)",
+          "everyKm": 15000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Базовый межсервисный интервал 15 000 км или 12 месяцев. Точный перечень работ — в сервисной книжке; часть пунктов выполняется через большее число ТО.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "engine-oil",
+          "name": "Моторное масло и масляный фильтр",
+          "everyKm": 15000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Заводская заливка — масло класса вязкости SAE 5W-30 (по официальному руководству). В тяжёлых условиях интервал сокращают; приложение пересчитает его по выбранным условиям эксплуатации.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "ac-refrigerant-check",
+          "name": "Проверка давления фреона кондиционера",
+          "everyKm": 30000,
+          "everyMonths": null,
+          "lifeKm": null,
+          "severity": "check",
+          "category": "maintenance",
+          "notes": "Каждые 30 000 км проверять давление фреона (R134a) в закрытом контуре кондиционирования — прямая цитата официального руководства по эксплуатации.",
+          "estimatedCost": null,
+          "parts": []
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "revision": 1,
+      "packId": "kia.rio.fb-yd.2017-2023.petrol",
+      "title": "Kia Rio (FB/YD, 2017–2023), бензин — по открытым источникам",
+      "source": "public-data",
+      "sourceUrl": "Дилерская сетка ТО Kia Rio (например, avtogermes.ru/servis/kia/rio/obsluzhivanie/reglament-to)",
+      "vendor": "Kia",
+      "models": ["Rio", "Rio X", "Rio X-Line"],
+      "yearFrom": 2017,
+      "yearTo": 2023,
+      "fuelTypes": ["petrol"],
+      "engineCodes": ["G4LA", "G4FG"],
+      "usageMultiplier": { "highway": 1, "normal": 1, "city": 0.85, "severe": 0.7, "taxi": 0.6 },
+      "disclaimer": "Интервалы собраны из открытых источников (дилерские сетки обслуживания). Официальная сетка ТО Kia отдаётся сайтом только через скрипты и получить её текст не удалось. Проверьте регламент для своего VIN и двигателя: это не официальная рекомендация производителя.",
+      "items": [
+        {
+          "code": "service-visit",
+          "name": "Плановое ТО",
+          "everyKm": 15000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Базовый интервал 15 000 км или 12 месяцев; первое (ТО-0) — примерно на 1 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "engine-oil",
+          "name": "Моторное масло и масляный фильтр",
+          "everyKm": 15000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Меняются на каждом плановом ТО.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "cabin-filter",
+          "name": "Салонный фильтр",
+          "everyKm": 15000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "recommended",
+          "category": "maintenance",
+          "notes": "По дилерской сетке меняется на каждом ТО; в реальности зависит от условий эксплуатации.",
+          "estimatedCost": null,
+          "parts": []
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "revision": 1,
+      "packId": "toyota.camry.xv70.2018-2023.petrol",
+      "title": "Toyota Camry XV70 (2018–2023), бензин — по открытым источникам",
+      "source": "public-data",
+      "sourceUrl": "Сервисные и клубные таблицы обслуживания Camry XV70 (официальный PDF на toyota.ru в этом запуске недоступен)",
+      "vendor": "Toyota",
+      "models": ["Camry"],
+      "yearFrom": 2018,
+      "yearTo": 2023,
+      "fuelTypes": ["petrol"],
+      "engineCodes": ["2AR-FE", "6AR-FSE", "A25A-FKS"],
+      "usageMultiplier": { "highway": 1, "normal": 1, "city": 0.85, "severe": 0.7, "taxi": 0.6 },
+      "disclaimer": "Интервалы собраны из открытых источников. Официальное руководство Toyota с таблицей периодического обслуживания получить не удалось. Данные требуют проверки по сервисной книжке вашего автомобиля: это не официальная рекомендация производителя.",
+      "items": [
+        {
+          "code": "service-visit",
+          "name": "Плановое ТО",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Базовый интервал 10 000 км или 12 месяцев.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "engine-oil",
+          "name": "Моторное масло и масляный фильтр",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Меняются на каждом плановом ТО.",
+          "estimatedCost": null,
+          "parts": []
+        }
+      ]
+    }
+  ]
+}
