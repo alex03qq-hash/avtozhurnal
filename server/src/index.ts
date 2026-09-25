@@ -17,7 +17,9 @@ import { createCollectionRouter } from './routes/crud.ts';
 import { createStatsRouter } from './routes/stats.ts';
 import { createIoRouter } from './routes/io.ts';
 import { createPhotosRouter } from './routes/photos.ts';
+import { createRegulationsRouter } from './routes/regulations.ts';
 import { PhotoStore } from './photo-store.ts';
+import { RegulationLibrary } from './regulations.ts';
 import { buildServerInfo } from './network.ts';
 import { createAuthMiddleware, describeTokenProblem, readAccessToken } from './auth.ts';
 import type { CollectionName } from '../../shared/types.ts';
@@ -39,6 +41,10 @@ await store.init();
 // Фотографии чеков: отдельные файлы рядом с базой.
 const photoStore = new PhotoStore(DATA_DIR);
 await photoStore.init();
+
+// Библиотека локальных пакетов регламентов ТО: файлы в data/regulations/packs.
+const regulations = new RegulationLibrary(DATA_DIR);
+const regulationLoad = await regulations.load();
 
 const app = express();
 app.disable('x-powered-by');
@@ -70,7 +76,11 @@ for (const name of collections) {
 }
 app.use('/api', createPhotosRouter(store, photoStore));
 app.use('/api', createStatsRouter(store));
-app.use('/api', createIoRouter(store, { port: PORT, host: HOST }));
+app.use('/api', createRegulationsRouter(store, regulations));
+app.use(
+  '/api',
+  createIoRouter(store, { port: PORT, host: HOST }, { photosDir: photoStore.directory, regulationsDir: regulations.directory }),
+);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Метод API не найден.' }));
 
@@ -117,6 +127,9 @@ const onListening = () => {
     console.log('Адрес в локальной сети не найден — возможно, компьютер не подключён к Wi-Fi.');
   }
   console.log(`Файл базы данных: ${store.filePath}`);
+  console.log(
+    `Пакетов регламентов ТО: ${regulationLoad.loaded}${regulationLoad.skipped.length ? ` (пропущено файлов: ${regulationLoad.skipped.length})` : ''}. Папка: ${regulations.directory}`,
+  );
   console.log(
     ACCESS_TOKEN
       ? 'Доступ защищён кодом из переменной ACCESS_TOKEN.'

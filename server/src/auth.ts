@@ -15,6 +15,34 @@ import type { NextFunction, Request, Response } from 'express';
 /** Методы, доступные без кода: экрану входа нужно понять, что связь есть. */
 const PUBLIC_PATHS = new Set(['/health', '/network']);
 
+/** Ограничение попыток: пять промахов — и адрес отключается на 15 минут. */
+const MAX_FAILED_ATTEMPTS = 5;
+const BLOCK_MS = 15 * 60 * 1000;
+const failedAttempts = new Map<string, { count: number; blockedUntil: number }>();
+
+function checkRateLimit(key: string): number {
+  const record = failedAttempts.get(key);
+  if (!record) return 0;
+  if (record.blockedUntil > Date.now()) return Math.ceil((record.blockedUntil - Date.now()) / 1000);
+  if (record.blockedUntil && record.blockedUntil <= Date.now()) failedAttempts.delete(key);
+  return 0;
+}
+
+function registerFailure(key: string): void {
+  const record = failedAttempts.get(key) ?? { count: 0, blockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
+    record.blockedUntil = Date.now() + BLOCK_MS;
+    record.count = 0;
+  }
+  failedAttempts.set(key, record);
+}
+
+/** Сброс счётчика попыток — вызывается и в тестах. */
+export function resetRateLimit(): void {
+  failedAttempts.clear();
+}
+
 export function readAccessToken(): string | null {
   const token = process.env.ACCESS_TOKEN?.trim();
   return token ? token : null;
@@ -57,9 +85,27 @@ export function createAuthMiddleware(token: string | null) {
     if (!token) return next();
     if (PUBLIC_PATHS.has(req.path)) return next();
 
-    const provided = extractToken(req);
-    if (provided && tokensMatch(provided, token)) return next();
+    const key = req.ip ?? 'unknown';
 
+    // Сначала проверяем сам код: верный пропускаем всегда, чтобы владелец не запирал себя сам.
+    const provided = extractToken(req);
+    if (provided && tokensMatch(provided, token)) {
+      failedAttempts.delete(key);
+      return next();
+    }
+
+    // Неверный код: если попыток слишком много — временная блокировка адреса.
+    const blockedFor = checkRateLimit(key);
+    if (blockedFor > 0) {
+      res.status(429).json({
+        error: `Слишком много неверных попыток. Попробуйте снова через ${Math.ceil(blockedFor / 60)} мин.`,
+        code: 'too_many_attempts',
+        retryAfter: blockedFor,
+      });
+      return undefined;
+    }
+
+    registerFailure(key);
     res.status(401).json({
       error: 'Нужен код доступа к журналу. Он задан в настройках приложения на компьютере.',
       code: 'auth_required',

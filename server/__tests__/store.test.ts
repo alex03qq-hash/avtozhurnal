@@ -141,6 +141,35 @@ describe('хранилище на JSON-файле', () => {
     expect(leftovers).toHaveLength(0);
   });
 
+  it('создаёт ежедневную копию базы при следующем запуске', async () => {
+    const dir = await freshDir('backup');
+    const store = new Store(dir);
+    await store.init();
+    await store.mutate((db) => {
+      db.vehicles.push(makeVehicle('v1', 'Первая'));
+    });
+
+    // Второй запуск на той же базе: копия за сегодня создаётся один раз
+    const reopened = new Store(dir);
+    await reopened.init();
+    const copies = await reopened.listBackups();
+    expect(copies).toHaveLength(1);
+    expect(copies[0]).toMatch(/^db\.json\.backup-\d{4}-\d{2}-\d{2}$/);
+
+    const state = await reopened.describeState();
+    expect(state.recoveredFrom).toBeNull();
+    expect(state.backups).toHaveLength(1);
+  });
+
+  it('рассказывает, если база была повреждена', async () => {
+    const dir = await freshDir('recover');
+    await fsp.writeFile(path.join(dir, 'db.json'), 'не JSON', 'utf8');
+    const store = new Store(dir);
+    await store.init();
+    const state = await store.describeState();
+    expect(state.recoveredFrom).toMatch(/^db\.json\.broken-/);
+  });
+
   it('полная замена и очистка базы работают', async () => {
     const store = new Store(await freshDir('replace'));
     await store.init();
