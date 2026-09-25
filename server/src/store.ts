@@ -81,8 +81,13 @@ export class Store {
   }
 
   /** Рассказ о состоянии данных: восстановление после сбоя и список ежедневных копий. */
-  async describeState(): Promise<{ recoveredFrom: string | null; backups: string[]; keepDays: number }> {
-    return { recoveredFrom: this.recoveredFrom, backups: await this.listBackups(), keepDays: 14 };
+  async describeState(): Promise<{ recoveredFrom: string | null; backups: string[]; snapshots: string[]; keepDays: number }> {
+    return {
+      recoveredFrom: this.recoveredFrom,
+      backups: await this.listBackups(),
+      snapshots: await this.listSnapshots(),
+      keepDays: 14,
+    };
   }
 
   /**
@@ -107,6 +112,31 @@ export class Store {
   async listBackups(): Promise<string[]> {
     const entries = await fsp.readdir(this.dir).catch(() => [] as string[]);
     return entries.filter((name) => name.startsWith('db.json.backup-')).sort().reverse();
+  }
+
+  /**
+   * Спасательная копия перед необратимым действием (загрузка демо, замена всей базы импортом).
+   *
+   * Отличие от rotateBackup: такая копия не перезаписывается и не удаляется автоматически.
+   * Ежедневная копия хранится одна на день и может оказаться старше ваших данных — на этом
+   * и строится необходимость отдельной копии «за секунду до».
+   */
+  async snapshot(tag: string): Promise<string | null> {
+    if (!fs.existsSync(this.file)) return null;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 23);
+    let name = `db.json.rescue-${tag}-${stamp}`;
+    // Две копии в одну миллисекунду не должны затирать друг друга
+    for (let attempt = 2; fs.existsSync(path.join(this.dir, name)); attempt += 1) {
+      name = `db.json.rescue-${tag}-${stamp}-${attempt}`;
+    }
+    await fsp.copyFile(this.file, path.join(this.dir, name));
+    return name;
+  }
+
+  /** Спасательные копии: их можно переименовать в db.json и вернуть состояние вручную. */
+  async listSnapshots(): Promise<string[]> {
+    const entries = await fsp.readdir(this.dir).catch(() => [] as string[]);
+    return entries.filter((name) => name.startsWith('db.json.rescue-')).sort().reverse();
   }
 
   async init(): Promise<void> {
