@@ -140,6 +140,13 @@ export interface RegulationItem {
   name: string;
   everyKm: number | null;
   everyMonths: number | null;
+  /**
+   * Интервалы для тяжёлых условий (город, пробки, пыль, короткие поездки).
+   * Задаются по конкретному пункту, а не общим множителем: у масла и у свечей
+   * сокращение разное, и придумывать одно число на всё нельзя.
+   */
+  severeEveryKm: number | null;
+  severeEveryMonths: number | null;
   /** Полный ресурс детали (для процента износа) — не то же самое, что интервал замены. */
   lifeKm: number | null;
   severity: 'required' | 'recommended' | 'check';
