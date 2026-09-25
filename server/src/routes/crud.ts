@@ -83,6 +83,12 @@ export function createCollectionRouter(store: Store, name: CollectionName, onRec
       if (name === 'fuel') assertOdometerOrder(state, { ...existing, ...patch }, req.params.id);
 
       const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() } as Record_;
+
+    // Если пользователь правит интервалы сам — помечаем это,
+    // чтобы обновление пакета регламента потом не затёрло его настройку.
+    if (name === 'rules' && ('intervalKm' in patch || 'intervalDays' in patch || 'componentLifeKm' in patch)) {
+      updated.userOverridden = true;
+    }
       rows[index] = updated;
       return { notFound: false as const, updated };
     });

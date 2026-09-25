@@ -7,7 +7,11 @@ import { Router } from 'express';
 import qrcode from 'qrcode-generator';
 import { buildServerInfo } from '../network.ts';
 import type { CollectionName, Database, Settings, ThemeName, UnitSystem } from '../../../shared/types.ts';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
 import { buildDemoData } from '../demo.ts';
+import { createZip, type ZipEntry } from '../zip.ts';
 import { expensesCsv, fuelCsv, incomesCsv } from '../csv.ts';
 import { newId, sanitize, ValidationError } from '../validate.ts';
 import type { Store } from '../store.ts';
@@ -16,7 +20,11 @@ import { ah } from './async-handler.ts';
 const THEMES: readonly ThemeName[] = ['light', 'dark', 'system'];
 const UNIT_SYSTEMS: readonly UnitSystem[] = ['metric', 'imperial'];
 
-export function createIoRouter(store: Store, server: { port: number; host: string } = { port: 4000, host: '0.0.0.0' }): Router {
+export function createIoRouter(
+  store: Store,
+  server: { port: number; host: string } = { port: 4000, host: '0.0.0.0' },
+  files: { photosDir?: string; regulationsDir?: string } = {},
+): Router {
   const router = Router();
 
   router.get('/health', (_req, res) => {
@@ -54,6 +62,12 @@ export function createIoRouter(store: Store, server: { port: number; host: strin
     res.setHeader('Cache-Control', 'no-store');
     res.send(qr.createSvgTag({ cellSize: 6, margin: 14, scalable: true }));
   });
+
+  /** Состояние данных: была ли аварийная ситуация, какие есть ежедневные копии. */
+  router.get('/diagnostics', ah(async (_req, res) => {
+    const state = await store.describeState();
+    res.json({ ...state, accessProtected: Boolean(process.env.ACCESS_TOKEN?.trim()), dataFile: store.filePath });
+  }));
 
   router.get('/settings', (_req, res) => res.json(store.get().settings));
 
@@ -119,6 +133,66 @@ export function createIoRouter(store: Store, server: { port: number; host: strin
     res.setHeader('Content-Disposition', `attachment; filename="${filename}-${new Date().toISOString().slice(0, 10)}.csv"`);
     res.send(csv);
   });
+
+  /** Ежедневные копии базы: видны пользователю, чтобы было понятно, что защита работает. */
+  router.get('/backups', ah(async (_req, res) => {
+    const copies = await store.listBackups();
+    res.json({ count: copies.length, copies, directory: path.dirname(store.filePath), keepDays: 14 });
+  }));
+
+  /**
+   * Полный архив: данные, фотографии чеков и пакеты регламентов одним ZIP-файлом.
+   * Обычный JSON-бэкап остаётся основным (данные важнее снимков), архив — для полного переезда.
+   */
+  router.get('/export/archive', ah(async (_req, res) => {
+    const db = store.get();
+    const entries: ZipEntry[] = [];
+
+    entries.push({
+      name: 'КАК-ВОССТАНОВИТЬ.txt',
+      data: Buffer.from(
+        [
+          'Полный архив АвтоЖурнала',
+          '',
+          'Что внутри:',
+          '  data/db.json                     — все записи журнала (авто, заправки, расходы, доходы, поездки, запчасти, регламенты)',
+          '  data/photos/                     — фотографии чеков',
+          '  data/regulations/packs/          — пакеты регламентов ТО',
+          '',
+          'Как восстановить:',
+          '  1. Распакуйте архив в папку приложения (туда, где лежат package.json и server/).',
+          '  2. Запустите приложение: npm install && npm run build && npm start',
+          '  3. Откройте http://localhost:4000 — данные будут на месте.',
+          '',
+          'Данные первичны: их можно восстановить и без фотографий — через «Настройки → Восстановление из JSON».',
+          '',
+        ].join('\n'),
+        'utf8',
+      ),
+    });
+
+    entries.push({ name: 'data/db.json', data: Buffer.from(`${JSON.stringify(db, null, 2)}\n`, 'utf8') });
+
+    const collect = async (dir: string | undefined, prefix: string) => {
+      if (!dir || !fs.existsSync(dir)) return;
+      const names = await fsp.readdir(dir);
+      for (const name of names) {
+        if (name.startsWith('.')) continue;
+        const file = path.join(dir, name);
+        const stat = await fsp.stat(file);
+        if (!stat.isFile() || stat.size > 8 * 1024 * 1024) continue;
+        entries.push({ name: `${prefix}${name}`, data: await fsp.readFile(file) });
+      }
+    };
+
+    await collect(files.photosDir, 'data/photos/');
+    await collect(files.regulationsDir, 'data/regulations/packs/');
+
+    const zip = createZip(entries);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="avtozhurnal-archive-${new Date().toISOString().slice(0, 10)}.zip"`);
+    res.send(zip);
+  }));
 
   /** Полный бэкап базы в JSON. */
   router.get('/export/json', (req, res) => {
