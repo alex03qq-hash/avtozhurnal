@@ -87,6 +87,96 @@ for (const type of ['fuel', 'expenses', 'incomes', 'all']) {
   );
 }
 
+/* ── Пакеты регламентов ТО ── */
+
+const demoPack = {
+  schemaVersion: 1,
+  revision: 2,
+  packId: 'smoke.test.pack',
+  title: 'Проверочный пакет регламента',
+  source: 'owner-manual',
+  sourceUrl: 'https://example.org/manual.pdf',
+  vendor: 'Lada',
+  models: ['Vesta'],
+  yearFrom: 2015,
+  yearTo: 2030,
+  fuelTypes: ['petrol'],
+  engineCodes: [],
+  usageMultiplier: { city: 0.8 },
+  disclaimer: 'Проверочный пакет: интервалы выдуманы для теста, не применяйте к реальной машине.',
+  items: [
+    { code: 'smoke-oil', name: 'Проверочная замена масла', everyKm: 15000, everyMonths: 12, lifeKm: 15000, severity: 'required', category: 'maintenance', notes: 'Из пакета', estimatedCost: 6000, parts: [] },
+    { code: 'smoke-filter', name: 'Проверочный фильтр', everyKm: 30000, everyMonths: null, lifeKm: 30000, severity: 'recommended', category: 'maintenance', notes: '', estimatedCost: 1500, parts: [] },
+  ],
+};
+
+const imported = await call('/api/regulations/import', { method: 'POST', body: JSON.stringify({ pack: demoPack }) });
+check(
+  'Пакет регламентов импортируется и проверяется',
+  imported.status === 201 && (imported.body?.saved ?? []).includes('smoke.test.pack'),
+  `HTTP ${imported.status}, сохранено: ${(imported.body?.saved ?? []).join(', ') || imported.body?.error}`,
+);
+
+const brokenPack = await call('/api/regulations/import', {
+  method: 'POST',
+  body: JSON.stringify({ pack: { packId: 'broken', title: 'Битый', items: [{ code: 'x', name: 'Без интервалов' }] } }),
+});
+check('Пакет без интервалов отклоняется', brokenPack.status === 400, `HTTP ${brokenPack.status}: ${brokenPack.body?.error}`);
+
+const matched = await call(`/api/regulations/match?vehicleId=${vehicleId}`);
+check(
+  'Пакет подбирается под автомобиль',
+  matched.status === 200 && (matched.body?.packs ?? []).some((pack) => pack.packId === 'smoke.test.pack'),
+  `найдено пакетов: ${(matched.body?.packs ?? []).length}`,
+);
+
+// Пользователь правит интервал вручную — пакет потом не должен его перезаписать
+const manualRule = await call('/api/rules', {
+  method: 'POST',
+  body: JSON.stringify({
+    vehicleId, name: 'Проверочная замена масла', intervalKm: 9000, intervalDays: 180, componentLifeKm: 9000,
+    // Пункт создаёт человек: origin не задаём — сервер помечает его как пользовательский.
+    warnKmBefore: 1000, warnDaysBefore: 14, code: 'smoke-oil', notes: 'Масло 5W-30, фильтр MANN',
+  }),
+});
+const manualId = manualRule.body?.id;
+check('Пункт пакета создан вручную с заметками', manualRule.status === 201 && Boolean(manualId));
+
+const preview = await call('/api/regulations/preview', {
+  method: 'POST',
+  body: JSON.stringify({ vehicleId, packId: 'smoke.test.pack', mode: 'update-untouched' }),
+});
+check(
+  'Предпросмотр показывает, что изменится',
+  preview.status === 200 && typeof preview.body?.added === 'number' && Array.isArray(preview.body?.preview),
+  `добавить ${preview.body?.added}, обновить ${preview.body?.updated}, оставить ${preview.body?.kept}`,
+);
+
+const applied = await call('/api/regulations/apply', {
+  method: 'POST',
+  body: JSON.stringify({ vehicleId, packId: 'smoke.test.pack', mode: 'update-untouched' }),
+});
+check('Пакет применяется к автомобилю', applied.status === 200 && applied.body?.ok === true, applied.body?.message);
+
+const rulesAfter = await call(`/api/rules?vehicleId=${vehicleId}`);
+const keptRule = (rulesAfter.body ?? []).find((rule) => rule.id === manualId);
+check(
+  'Ручной интервал и заметки пользователя сохранены',
+  keptRule?.intervalKm === 9000 && keptRule?.notes === 'Масло 5W-30, фильтр MANN',
+  `интервал ${keptRule?.intervalKm}, заметки: ${keptRule?.notes}`,
+);
+check(
+  'Из пакета добавились недостающие пункты с заводскими интервалами',
+  (rulesAfter.body ?? []).some((rule) => rule.code === 'smoke-filter' && rule.intervalKm === 30000 && rule.origin === 'pack'),
+  `пунктов всего: ${(rulesAfter.body ?? []).length}`,
+);
+const withPack = (rulesAfter.body ?? []).find((rule) => rule.code === 'smoke-filter');
+check(
+  'У применённого пункта видно источник и ревизию пакета',
+  Boolean(withPack?.packTitle) && Number(withPack?.packRevision) === 2,
+  `${withPack?.packTitle} (ревизия ${withPack?.packRevision})`,
+);
+
 /* ── Цены по АЗС ── */
 
 const stations = await call(`/api/stats/stations?vehicleId=${vehicleId}`);
