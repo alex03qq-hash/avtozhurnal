@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CollectionName } from '../../shared/types.ts';
+import type { CollectionName, EstimateItem } from '../../shared/types.ts';
 import {
   EXPENSE_CATEGORY_LABELS,
   EXPENSE_CATEGORY_ORDER,
@@ -20,7 +20,18 @@ export class ValidationError extends Error {
   }
 }
 
-type FieldType = 'string' | 'text' | 'number' | 'int' | 'bool' | 'date' | 'enum' | 'nullableNumber' | 'nullableDate' | 'nullableId';
+type FieldType =
+  | 'string'
+  | 'text'
+  | 'number'
+  | 'int'
+  | 'bool'
+  | 'date'
+  | 'enum'
+  | 'nullableNumber'
+  | 'nullableDate'
+  | 'nullableId'
+  | 'array';
 
 interface FieldSpec {
   type: FieldType;
@@ -125,6 +136,23 @@ const SPECS: Record<CollectionName, Record<string, FieldSpec>> = {
     manufacturerIntervalDays: { type: 'nullableNumber', label: 'Заводской интервал, дней', min: 0 },
     userOverridden: { type: 'bool', label: 'Интервал изменён вручную', default: false },
   },
+  estimates: {
+    vehicleId: { type: 'string', label: 'Автомобиль', required: true },
+    ruleCode: { type: 'nullableId', label: 'Код пункта регламента' },
+    ruleName: { type: 'string', label: 'Название пункта', default: '' },
+    title: { type: 'string', label: 'Название сметы', required: true },
+    validUntil: { type: 'date', label: 'Действует до', required: true },
+    status: { type: 'enum', label: 'Состояние', values: ['draft', 'accepted', 'archived'], default: 'draft' },
+    // parts обрабатывается отдельно: это массив объектов, а не строка — см. sanitizeEstimateParts
+    parts: { type: 'array', label: 'Позиции' } as unknown as FieldSpec,
+    laborHours: { type: 'number', label: 'Часы работ', min: 0, default: 0 },
+    laborRatePerHour: { type: 'number', label: 'Ставка за час', min: 0, default: 0 },
+    laborDescription: { type: 'string', label: 'Описание работ', default: '' },
+    total: { type: 'number', label: 'Итого', min: 0, default: 0 },
+    confidence: { type: 'number', label: 'Достоверность', min: 0, default: 0 },
+    notes: { type: 'text', label: 'Заметки', default: '' },
+    expenseId: { type: 'nullableId', label: 'Связанный расход' },
+  },
   checklist: {
     vehicleId: { type: 'nullableId', label: 'Автомобиль' },
     label: { type: 'string', label: 'Пункт', required: true },
@@ -145,9 +173,31 @@ function assertSaneNumber(value: number, label: string): void {
   }
 }
 
+/** Позиции сметы: массив объектов с ценами. Приходит из интерфейса, поэтому проверяем каждое поле. */
+function sanitizeEstimateParts(value: unknown): EstimateItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 50).map((raw) => {
+    const row = (raw ?? {}) as Partial<EstimateItem>;
+    const quantity = Number(row.quantity);
+    const unitPrice = Number(row.unitPrice);
+    const source = row.priceSource === 'history' || row.priceSource === 'pack' ? row.priceSource : 'manual';
+    return {
+      name: String(row.name ?? '').slice(0, 160),
+      article: String(row.article ?? '').slice(0, 60),
+      quantity: Number.isFinite(quantity) && quantity > 0 ? Math.round(quantity * 100) / 100 : 1,
+      unitPrice: Number.isFinite(unitPrice) && unitPrice >= 0 ? Math.round(unitPrice * 100) / 100 : 0,
+      priceSource: source,
+      note: String(row.note ?? '').slice(0, 200),
+    };
+  });
+}
+
 function coerce(spec: FieldSpec, value: unknown, key: string): unknown {
   const label = spec.label;
   switch (spec.type) {
+    case 'array':
+      // Обрабатывается отдельным шагом ниже (sanitizeEstimateParts)
+      return value;
     case 'string':
     case 'text': {
       if (value === undefined || value === null) return spec.default ?? '';
@@ -225,6 +275,10 @@ export function sanitize<T extends Record<string, unknown>>(
       throw new ValidationError(`Поле «${field.label}» обязательно.`);
     }
     result[key] = coerce(field, input[key], key);
+  }
+
+  if (collection === 'estimates') {
+    result.parts = sanitizeEstimateParts(result.parts);
   }
 
   if (collection === 'fuel') {
