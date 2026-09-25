@@ -2331,3 +2331,21 @@ body.modal-open {
   font-size: var(--fs-18);
   font-weight: var(--fw-semibold);
 }
+
+
+/* ─────────── Вставка списка цен в смету ─────────── */
+
+.pricelist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.pricelist .input--area {
+  min-height: 92px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+}
