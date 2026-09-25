@@ -230,6 +230,8 @@ export function createIoRouter(
 
     const added: Record<string, number> = {};
     let skipped = 0;
+    // Замена всей базы — необратимое действие: спасательная копия делается до записи
+    const rescue = mode === 'replace' ? await store.snapshot('before-import') : null;
 
     await store.mutate((db) => {
       if (mode === 'replace') {
@@ -288,15 +290,24 @@ export function createIoRouter(
       mode,
       added,
       skipped,
+      rescue,
       message:
-        mode === 'replace'
+        (mode === 'replace'
           ? `Данные восстановлены из бэкапа${skipped ? `, пропущено повреждённых строк: ${skipped}` : ''}.`
-          : `Данные добавлены к текущим${skipped ? `, пропущено повреждённых строк: ${skipped}` : ''}.`,
+          : `Данные добавлены к текущим${skipped ? `, пропущено повреждённых строк: ${skipped}` : ''}.`) +
+        (rescue ? ` Копия прежнего журнала сохранена: ${rescue}` : ''),
     });
   }));
 
   /** Демонстрационные данные. */
-  router.post('/demo', ah(async (_req, res) => {
+  router.post('/demo', ah(async (req, res) => {
+    // Загрузка демо-набора заменяет всю базу. Требуем явное подтверждение: без него одну
+    // неосторожную команду было не отличить от намерения, и данные владельца терялись.
+    const confirmed = (req.body as { confirm?: boolean } | undefined)?.confirm === true || req.query.confirm === '1';
+    if (!confirmed) {
+      throw new ValidationError('Загрузка демонстрационных данных заменит весь журнал. Подтвердите действие: confirm=true.');
+    }
+    const rescue = await store.snapshot('before-demo');
     const demo = buildDemoData();
     await store.mutate((db) => {
       const fresh = buildEmptyLike(db);
@@ -311,7 +322,10 @@ export function createIoRouter(
     const db = store.get();
     res.json({
       ok: true,
-      message: 'Демонстрационные данные загружены.',
+      message: rescue
+        ? `Демонстрационные данные загружены. Копия прежнего журнала сохранена: ${rescue}`
+        : 'Демонстрационные данные загружены.',
+      rescue,
       summary: {
         vehicles: db.vehicles.length,
         fuel: db.fuel.length,
