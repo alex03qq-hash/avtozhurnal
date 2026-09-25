@@ -8,6 +8,7 @@ dist/
 
 # данные приложения (личная база пользователя)
 data/db.json
+data/db.json.*
 data/*.json
 data/photos/
 data/regulations/
