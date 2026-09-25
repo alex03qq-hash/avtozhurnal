@@ -207,6 +207,29 @@ export const api = {
     request<{ ok: boolean; total: number; message: string }>('/import/fuel', { method: 'POST', body: JSON.stringify(body) }),
   importExpenses: (body: { text: string; vehicleId?: string; defaultCategory?: ExpenseCategory }) =>
     request<{ ok: boolean; created: number; message: string }>('/import/expenses', { method: 'POST', body: JSON.stringify(body) }),
+  importFilePreview: (body: { filename: string; content: string }) =>
+    request<{
+      filename: string;
+      sheets: Array<{ sheet: string; kind: string; fuel: number; expenses: number; skipped: number }>;
+      hasVehicleColumn: boolean;
+      fuel: { count: number; totalLiters: number; totalCost: number; withOdometer: number; sample: Array<{ date: string; volume: number | null; totalCost: number | null; station: string; odometer: number | null; vehicleName: string | null }> };
+      expenses: { count: number; totalCost: number; byCategory: Record<string, number>; sample: Array<{ date: string; amount: number; description: string; category: ExpenseCategory | null; vehicleName: string | null }> };
+      skipped: Array<{ sheet: string; row: number; raw: string }>;
+      skippedTotal: number;
+      warnings: string[];
+    }>('/import/file-preview', { method: 'POST', body: JSON.stringify(body) }),
+  importFile: (body: { filename: string; content: string; targets?: Array<{ vehicleId: string; currentOdometer: number }>; markFullTank?: boolean; vehicleId?: string; defaultCategory?: ExpenseCategory }) =>
+    request<{
+      ok: boolean;
+      fuelTotal: number;
+      expenseTotal: number;
+      fuelCreated: Array<{ vehicleId: string; count: number; estimatedOdometer: boolean }>;
+      expenseCreated: Array<{ vehicleId: string; count: number }>;
+      skipped: Array<{ sheet: string; row: number; raw: string }>;
+      skippedTotal: number;
+      warnings: string[];
+      message: string;
+    }>('/import/file', { method: 'POST', body: JSON.stringify(body) }),
   importHint: () =>
     request<Array<{ vehicleId: string; name: string; initialOdometer: number; purchaseDate: string | null; currentOdometer: number; fuelEntries: number }>>('/import/hint'),
 
@@ -281,6 +304,9 @@ export const jsonUrl = (vehicleId?: string) => withToken(`/api/export/json${vehi
 
 /** Полный архив «данные + фотографии + пакеты регламентов». */
 export const archiveUrl = () => withToken('/api/export/archive');
+
+/** Шаблон для заполнения в Excel: листы «Заправки» и «Расходы». */
+export const importTemplateUrl = (empty = false) => withToken(`/api/import/template.xlsx${empty ? '?empty=1' : ''}`);
 
 /** Файл календаря с ближайшими сроками ТО — открывается в календаре телефона. */
 export const calendarUrl = (vehicleId?: string) =>
