@@ -45,8 +45,8 @@ const pack: RegulationPack = {
   disclaimer: 'Шаблон по руководству владельца, проверяйте для своего VIN.',
   revision: 3,
   items: [
-    { code: 'engine-oil', name: 'Масло и фильтр', everyKm: 15000, everyMonths: 12, lifeKm: 15000, severity: 'required', category: 'maintenance', notes: 'Заводская формулировка', estimatedCost: 6500, parts: [] },
-    { code: 'spark-plugs', name: 'Свечи', everyKm: 60000, everyMonths: null, lifeKm: 60000, severity: 'recommended', category: 'maintenance', notes: '', estimatedCost: 4000, parts: [{ name: 'Свеча', article: '90919', quantity: 4 }] },
+    { code: 'engine-oil', name: 'Масло и фильтр', everyKm: 15000, everyMonths: 12, severeEveryKm: 7500, severeEveryMonths: 9, lifeKm: 15000, severity: 'required', category: 'maintenance', notes: 'Заводская формулировка', estimatedCost: 6500, parts: [] },
+    { code: 'spark-plugs', name: 'Свечи', everyKm: 60000, everyMonths: null, severeEveryKm: null, severeEveryMonths: null, lifeKm: 60000, severity: 'recommended', category: 'maintenance', notes: '', estimatedCost: 4000, parts: [{ name: 'Свеча', article: '90919', quantity: 4 }] },
   ],
 };
 
@@ -202,21 +202,35 @@ describe('применение пакета', () => {
     expect(rules[0].packRevision).toBe(3);
   });
 
-  it('обновляет неизменённые пункты и пересчитывает интервал по условиям', () => {
-    const rules = [makeRule({ userOverridden: false })];
+  it('обновляет неизменённые пункты и применяет множитель условий, когда пункт его не задаёт', () => {
+    // Свечи: своего интервала для тяжёлых условий в пакете нет → работает множитель пакета (город 0,8)
+    const rules = [makeRule({ code: 'spark-plugs', name: 'Свечи', intervalKm: 60000, userOverridden: false })];
     const result = library.apply(rules, makeVehicle({ usageClass: 'city' }), pack, 'update-untouched');
     expect(result.updated).toBe(1);
-    // Город: 15 000 × 0,8 = 12 000 км (множитель из самого пакета)
-    expect(rules[0].intervalKm).toBe(12000);
-    expect(rules[0].manufacturerIntervalKm).toBe(15000);
+    expect(rules[0].intervalKm).toBe(48000);
+    expect(rules[0].manufacturerIntervalKm).toBe(60000);
     expect(rules[0].packId).toBe(pack.packId);
+  });
+
+  it('для тяжёлых условий берёт интервал из пункта пакета, а не общий множитель', () => {
+    const rules = [makeRule({ origin: 'pack', userOverridden: false })];
+    library.apply(rules, makeVehicle({ usageClass: 'city' }), pack, 'update-untouched');
+    // В пакете для масла задано 7 500 км / 9 мес. — берём именно это, множитель города 0,8 не применяем
+    expect(rules[0].intervalKm).toBe(7500);
+    expect(rules[0].intervalDays).toBe(Math.round(9 * 30.44));
+  });
+
+  it('обычные условия оставляют заводской интервал', () => {
+    const rules = [makeRule({ origin: 'pack', userOverridden: false })];
+    library.apply(rules, makeVehicle({ usageClass: 'highway' }), pack, 'update-untouched');
+    expect(rules[0].intervalKm).toBe(15000);
   });
 
   it('берёт множитель из общего справочника, если пакет его не задал', () => {
     const withoutMultiplier: RegulationPack = { ...pack, usageMultiplier: {} };
-    const rules = [makeRule({ userOverridden: false })];
+    const rules = [makeRule({ code: 'spark-plugs', name: 'Свечи', intervalKm: 60000, userOverridden: false })];
     library.apply(rules, makeVehicle({ usageClass: 'taxi' }), withoutMultiplier, 'update-untouched');
-    expect(rules[0].intervalKm).toBe(Math.round(15000 * USAGE_CLASS_MULTIPLIER.taxi));
+    expect(rules[0].intervalKm).toBe(Math.round(60000 * USAGE_CLASS_MULTIPLIER.taxi));
   });
 
   it('режим «добавить только недостающие» не трогает существующие пункты', () => {
