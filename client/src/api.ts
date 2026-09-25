@@ -132,6 +132,45 @@ export const api = {
       averagePrice: number | null;
       trips: Array<Trip & { estimatedCost: number | null; estimatedProfit: number | null }>;
     }>(`/stats/trips${vehicleId ? `?vehicleId=${vehicleId}` : ''}`),
+  regulationPacks: () =>
+    request<{ packs: Array<{ packId: string; title: string; vendor: string; models: string[]; items: number; source: string; disclaimer: string }>; directory: string }>(
+      '/regulations/packs',
+    ),
+  regulationMatch: (vehicleId?: string) =>
+    request<{
+      vehicleId: string;
+      packs: Array<{ packId: string; title: string; vendor: string; items: number; source: string; disclaimer: string; relevance?: number }>;
+    } & { generic: Array<{ packId: string; title: string; vendor: string; items: number; source: string; disclaimer: string }> }>(
+      `/regulations/match${vehicleId ? `?vehicleId=${vehicleId}` : ''}`,
+    ),
+  regulationPreview: (body: { vehicleId?: string; packId: string; mode: string }) =>
+    request<{
+      packId: string;
+      packTitle: string;
+      disclaimer: string;
+      added: number;
+      updated: number;
+      kept: number;
+      leftAlone: number;
+      preview: Array<{ code: string; name: string; action: 'add' | 'update' | 'keep'; reason: string }>;
+    }>('/regulations/preview', { method: 'POST', body: JSON.stringify(body) }),
+  regulationApply: (body: { vehicleId?: string; packId: string; mode: string }) =>
+    request<{ ok: boolean; message: string; added: number; updated: number; kept: number; disclaimer: string }>('/regulations/apply', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  regulationExample: () => request<Record<string, unknown>>('/regulations/example'),
+  regulationImport: (pack: unknown) =>
+    request<{ ok: boolean; saved: string[]; failed: string[]; directory: string }>('/regulations/import', {
+      method: 'POST',
+      body: JSON.stringify({ pack }),
+    }),
+
+  diagnostics: () =>
+    request<{ recoveredFrom: string | null; backups: string[]; keepDays: number; accessProtected: boolean; dataFile: string }>(
+      '/diagnostics',
+    ),
+
   stations: (vehicleId?: string) =>
     request<Array<{ station: string; count: number; lastPrice: number; lastDate: string; averagePrice: number | null }>>(
       `/stats/stations${vehicleId ? `?vehicleId=${vehicleId}` : ''}`,
@@ -200,6 +239,9 @@ export const csvUrl = (vehicleId?: string, type: 'fuel' | 'expenses' | 'incomes'
   withToken(`/api/export/csv?type=${type}${vehicleId ? `&vehicleId=${vehicleId}` : ''}`);
 
 export const jsonUrl = (vehicleId?: string) => withToken(`/api/export/json${vehicleId ? `?vehicleId=${vehicleId}` : ''}`);
+
+/** Полный архив «данные + фотографии + пакеты регламентов». */
+export const archiveUrl = () => withToken('/api/export/archive');
 
 /** Файл календаря с ближайшими сроками ТО — открывается в календаре телефона. */
 export const calendarUrl = (vehicleId?: string) =>
