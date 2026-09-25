@@ -66,6 +66,8 @@ export class Store {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly file: string;
   private readonly dir: string;
+  /** Файл, из которого восстановились после повреждения (если такое было). */
+  private recoveredFrom: string | null = null;
 
   constructor(dataDir: string) {
     this.dir = path.resolve(dataDir);
@@ -74,6 +76,35 @@ export class Store {
 
   get filePath(): string {
     return this.file;
+  }
+
+  /** Рассказ о состоянии данных: восстановление после сбоя и список ежедневных копий. */
+  async describeState(): Promise<{ recoveredFrom: string | null; backups: string[]; keepDays: number }> {
+    return { recoveredFrom: this.recoveredFrom, backups: await this.listBackups(), keepDays: 14 };
+  }
+
+  /**
+   * Ежедневная копия базы рядом с файлом: `db.json.backup-ГГГГ-ММ-ДД`.
+   * Хранятся последние 14 копий — этого достаточно, чтобы заметить и откатить порчу данных.
+   */
+  async rotateBackup(keepDays = 14): Promise<string | null> {
+    if (!fs.existsSync(this.file)) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const target = path.join(this.dir, `db.json.backup-${today}`);
+    if (fs.existsSync(target)) return null;
+
+    await fsp.copyFile(this.file, target);
+    const copies = (await fsp.readdir(this.dir)).filter((name) => name.startsWith('db.json.backup-')).sort();
+    for (const old of copies.slice(0, Math.max(0, copies.length - keepDays))) {
+      await fsp.unlink(path.join(this.dir, old)).catch(() => undefined);
+    }
+    return target;
+  }
+
+  /** Список имеющихся копий, свежие сверху. */
+  async listBackups(): Promise<string[]> {
+    const entries = await fsp.readdir(this.dir).catch(() => [] as string[]);
+    return entries.filter((name) => name.startsWith('db.json.backup-')).sort().reverse();
   }
 
   async init(): Promise<void> {
@@ -87,9 +118,12 @@ export class Store {
       const raw = await fsp.readFile(this.file, 'utf8');
       const parsed = JSON.parse(raw) as Partial<Database>;
       this.db = this.normalize(parsed);
+      // Копия на сегодня: если данные испортятся, будет к чему вернуться.
+      await this.rotateBackup().catch(() => null);
     } catch (error) {
       const backup = `${this.file}.broken-${Date.now()}`;
       await fsp.rename(this.file, backup).catch(() => undefined);
+      this.recoveredFrom = path.basename(backup);
       console.error(`[store] Файл базы повреждён, сохранён как ${backup}. Создана пустая база.`);
       this.db = emptyDatabase();
       await this.persist();
