@@ -230,6 +230,46 @@ export interface ChecklistItem extends BaseEntity {
   lastCheckedAt: string | null;
 }
 
+/** Позиция сметы: деталь, расходник или жидкость. */
+export interface EstimateItem {
+  name: string;
+  article: string;
+  quantity: number;
+  unitPrice: number;
+  /** Откуда взялась цена: из истории журнала, из пакета регламента или вписана вручную. */
+  priceSource: 'history' | 'pack' | 'manual';
+  note: string;
+}
+
+/**
+ * Смета на предстоящее ТО.
+ *
+ * Считается локально: цены берутся из уже внесённых записей (что вы платили за похожие работы
+ * и запчасти) либо вписываются вручную. Внешние сервисы не используются — суммы всегда можно
+ * проверить по своей же истории. Принятая смета превращается в обычный расход.
+ */
+export interface Estimate extends BaseEntity {
+  vehicleId: Id;
+  /** Код пункта регламента, если смета построена по нему. */
+  ruleCode: string | null;
+  ruleName: string;
+  title: string;
+  createdAt: string;
+  /** До какого времени смету считаем актуальной. */
+  validUntil: string;
+  status: 'draft' | 'accepted' | 'archived';
+  parts: EstimateItem[];
+  laborHours: number;
+  laborRatePerHour: number;
+  laborDescription: string;
+  total: number;
+  /** Насколько данным можно доверять: 1 — все цены из истории, ниже — есть вписанные вручную. */
+  confidence: number;
+  notes: string;
+  /** Расход, созданный из этой сметы. */
+  expenseId?: Id | null;
+}
+
 export interface Settings extends BaseEntity {
   activeVehicleId: Id | null;
   theme: ThemeName;
@@ -248,6 +288,7 @@ export interface Database {
   parts: Part[];
   rules: ServiceRule[];
   checklist: ChecklistItem[];
+  estimates: Estimate[];
 }
 
 /** Коллекции, доступные через универсальный CRUD-роутер. */
@@ -259,7 +300,8 @@ export type CollectionName =
   | 'trips'
   | 'parts'
   | 'rules'
-  | 'checklist';
+  | 'checklist'
+  | 'estimates';
 
 export interface ConsumptionSegment {
   fromDate: string;
