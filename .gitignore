@@ -10,6 +10,7 @@ dist/
 data/db.json
 data/*.json
 data/photos/
+data/regulations/
 !data/.gitkeep
 
 # окружение и секреты
