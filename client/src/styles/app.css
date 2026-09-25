@@ -2265,3 +2265,69 @@ body.modal-open {
   font-size: var(--fs-12);
   color: var(--text-2);
 }
+
+
+/* ─────────── Сметы на ТО ─────────── */
+
+.estimate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.estimate-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-13);
+}
+
+.estimate-list__title {
+  font-weight: var(--fw-medium);
+}
+
+.estimate-list__sum {
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.estimate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.estimate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-13);
+}
+
+.estimate-table th,
+.estimate-table td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.estimate-table .is-right {
+  text-align: right;
+}
+
+.estimate-table .input {
+  height: 36px;
+  font-size: var(--fs-13);
+}
+
+.estimate-total {
+  margin: 0;
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+}
