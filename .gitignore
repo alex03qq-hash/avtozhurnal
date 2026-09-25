@@ -13,6 +13,9 @@ data/photos/
 data/regulations/
 !data/.gitkeep
 
+# сгенерированные файлы для владельца (отчёты, шаблоны)
+DELIVERY/
+
 # окружение и секреты
 .env
 .env.local
