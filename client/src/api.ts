@@ -278,7 +278,10 @@ export const api = {
     }),
   removePhoto: (id: string) => request<{ ok: boolean }>(`/photos/${id}`, { method: 'DELETE' }),
 
-  loadDemo: () => request<{ ok: boolean; message: string; summary: Record<string, number> }>('/demo', { method: 'POST' }),
+  loadDemo: () => request<{ ok: boolean; message: string; rescue: string | null; summary: Record<string, number> }>('/demo', {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true }),
+  }),
   clearAll: () => request<{ ok: boolean; message: string }>('/demo', { method: 'DELETE' }),
   importJson: (mode: 'replace' | 'merge', data: Partial<Database>) =>
     request<{ ok: boolean; mode: string; added: Record<string, number>; message: string }>('/import/json', {
