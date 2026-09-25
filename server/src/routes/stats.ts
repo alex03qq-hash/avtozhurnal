@@ -117,7 +117,7 @@ export function createStatsRouter(store: Store): Router {
     const s = scope(store.get(), req.query.vehicleId);
     if (!s.vehicle) return res.json({ odometer: 0, items: [] });
     const odometer = currentOdometer(s.vehicle, s.fuel, s.expenses);
-    const items = buildReminders(s.rules, odometer).map((item) => ({
+    const items = buildReminders(s.rules, odometer, new Date(), s.vehicle.purchaseDate ?? null).map((item) => ({
       ...item,
       rule: s.rules.find((r) => r.id === item.ruleId) ?? null,
     }));
@@ -229,7 +229,7 @@ export function createStatsRouter(store: Store): Router {
     if (!s.vehicle) throw new ValidationError('Автомобиль не выбран.');
 
     const odometer = currentOdometer(s.vehicle, s.fuel, s.expenses);
-    const items = buildReminders(s.rules, odometer);
+    const items = buildReminders(s.rules, odometer, new Date(), s.vehicle.purchaseDate ?? null);
     const perDay = averageDailyDistance(s.fuel, odometer);
     const today = todayISO();
     const vehicleName = s.vehicle.name;
@@ -332,7 +332,7 @@ export function createStatsRouter(store: Store): Router {
           vendor: e.vendor,
         })),
       parts: s.parts.map((p) => ({ ...p, installDateLabel: formatDate(p.installDate) })),
-      wear: buildReminders(s.rules, odometer).map((w) => ({ ...w })),
+      wear: buildReminders(s.rules, odometer, new Date(), s.vehicle.purchaseDate ?? null).map((w) => ({ ...w })),
       fuelHistory: [...s.fuel]
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, 40)
