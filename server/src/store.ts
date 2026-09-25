@@ -12,6 +12,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type {
   ChecklistItem,
+  Estimate,
   CollectionName,
   Database,
   Expense,
@@ -38,6 +39,7 @@ function emptyDatabase(): Database {
     trips: [],
     parts: [],
     rules: [],
+    estimates: [],
     checklist: DEFAULT_CHECKLIST.map((item) => ({
       id: randomUUID(),
       vehicleId: null,
@@ -163,6 +165,7 @@ export class Store {
       trips: asArray<Trip>(parsed.trips),
       parts: asArray<Part>(parsed.parts),
       rules: asArray<ServiceRule>(parsed.rules),
+      estimates: asArray<Estimate>(parsed.estimates),
       checklist: checklist.length ? checklist : fresh.checklist,
     };
   }
