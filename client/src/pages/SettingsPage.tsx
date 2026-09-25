@@ -1,7 +1,7 @@
 /** Настройки: автомобили, оформление, единицы измерения, бэкап, демо-данные. */
 
 import React, { useRef, useState } from 'react';
-import { api, calendarUrl, csvUrl, jsonUrl, qrUrl } from '../api.ts';
+import { api, archiveUrl, calendarUrl, csvUrl, jsonUrl, qrUrl } from '../api.ts';
 import { useApp } from '../store.tsx';
 import { useLoad } from '../hooks/useLoad.ts';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Loader, Modal, NumberInput, Select, TextInput } from '../ui.tsx';
@@ -9,6 +9,8 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt.ts';
 import { useMaintenanceAlerts } from '../hooks/useMaintenanceAlerts.ts';
 import { formatDate } from '../../../shared/format.ts';
 import { FUEL_TYPE_LABELS, UNIT_SYSTEM_LABELS } from '../../../shared/constants.ts';
+import { USAGE_LABELS, USAGE_MULTIPLIERS } from '../utils/usage.ts';
+import type { UsageClass } from '../../../shared/types.ts';
 import type { Database, ThemeName, UnitSystem, Vehicle } from '../../../shared/types.ts';
 
 const EMPTY_VEHICLE = {
@@ -36,6 +38,9 @@ export default function SettingsPage() {
   const { signOut } = useApp();
   const install = useInstallPrompt();
   const alerts = useMaintenanceAlerts(activeVehicle?.id);
+  const packs = useLoad(() => api.regulationPacks(), [], { packs: [] as Array<{ packId: string; title: string; vendor: string; items: number; source: string; disclaimer: string }>, directory: '' });
+  const diagnostics = useLoad(() => api.diagnostics(), [], { recoveredFrom: null as string | null, backups: [] as string[], keepDays: 14, accessProtected: false, dataFile: '' });
+  const packInput = useRef<HTMLInputElement>(null);
   const network = useLoad(() => api.network(), [], null);
 
   const addVehicle = async (event: React.FormEvent) => {
@@ -251,7 +256,23 @@ export default function SettingsPage() {
             и без снимка. Фотографии чеков — исходники: они лежат отдельными файлами в <code>data/photos</code>
             и в бэкап не входят. Хотите перенести и их — скопируйте папку вместе с файлом базы.
           </InfoNote>
+          {diagnostics.data.recoveredFrom && (
+            <div className="note note--error" role="alert">
+              Файл базы был повреждён и сохранён рядом как <code>{diagnostics.data.recoveredFrom}</code>: журнал
+              запустился с пустой базой. Последние записи можно вернуть из ежедневной копии ниже.
+            </div>
+          )}
+
+          <p className="hint-line">
+            Ежедневные копии базы: {diagnostics.data.backups.length} из {diagnostics.data.keepDays} возможных.
+            {diagnostics.data.backups.length > 0 && ` Свежая — ${diagnostics.data.backups[0]}.`}
+            {' '}Доступ кодом: {diagnostics.data.accessProtected ? 'включён' : 'выключен'}.
+          </p>
+
           <div className="button-row">
+            <a className="btn btn--primary btn--md" href={archiveUrl()} download>
+              Скачать полный архив (данные + фото)
+            </a>
             <a className="btn btn--secondary btn--md" href={csvUrl(activeVehicle?.id, 'fuel')} download>
               CSV: заправки
             </a>
@@ -290,6 +311,95 @@ export default function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      <Card
+        title="Условия эксплуатации и пакеты регламентов"
+        subtitle="Условия влияют на пересчёт заводских интервалов ТО; пакеты лежат файлами на компьютере"
+      >
+        <div className="form-grid">
+          <Field
+            label="Как эксплуатируется машина"
+            hint={
+              activeVehicle
+                ? `Сейчас: ${USAGE_LABELS[(activeVehicle.usageClass ?? 'normal') as UsageClass]} — интервал ТО считается как ${Math.round(USAGE_MULTIPLIERS[(activeVehicle.usageClass ?? 'normal') as UsageClass] * 100)} % от заводского`
+                : 'Выберите автомобиль'
+            }
+          >
+            <Select
+              value={(activeVehicle?.usageClass ?? 'normal') as UsageClass}
+              disabled={!activeVehicle}
+              onChange={async (e) => {
+                if (!activeVehicle) return;
+                try {
+                  await api.update<Vehicle>('vehicles', activeVehicle.id, { usageClass: e.target.value });
+                  await reload();
+                  notify('Условия эксплуатации обновлены.', 'success');
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : 'Не удалось сохранить условия.', 'error');
+                }
+              }}
+            >
+              {(Object.keys(USAGE_LABELS) as UsageClass[]).map((key) => (
+                <option key={key} value={key}>
+                  {USAGE_LABELS[key]} (×{USAGE_MULTIPLIERS[key]})
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Импорт пакета регламентов" hint="JSON-файл с заводскими интервалами: файл проверяется перед сохранением">
+            <input
+              ref={packInput}
+              type="file"
+              accept="application/json,.json"
+              className="input"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                try {
+                  const parsed = JSON.parse(await file.text());
+                  const result = await api.regulationImport(parsed.packs ? parsed : parsed.pack ? parsed.pack : parsed);
+                  await packs.reload();
+                  notify(`Пакет сохранён: ${result.saved.join(', ')}.`, 'success');
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : 'Не удалось импортировать пакет.', 'error');
+                }
+              }}
+            />
+          </Field>
+        </div>
+
+        <div className="button-row" style={{ marginTop: 'var(--space-4)' }}>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                const example = await api.regulationExample();
+                await api.regulationImport(example);
+                await packs.reload();
+                notify('Пример пакета добавлен — откройте «Обслуживание» и посмотрите предпросмотр.', 'success');
+              } catch (err) {
+                notify(err instanceof Error ? err.message : 'Не удалось добавить пример.', 'error');
+              }
+            }}
+          >
+            Добавить пример пакета
+          </Button>
+        </div>
+
+        <p className="hint-line" style={{ marginTop: 'var(--space-4)' }}>
+          Библиотека пакетов: {packs.data.packs.length} шт. Папка: <code>{packs.data.directory || 'data/regulations/packs'}</code>.
+          {packs.data.packs.length > 0 && ` Загружены: ${packs.data.packs.map((pack) => pack.title).join('; ')}.`}
+        </p>
+
+        <InfoNote>
+          Регламенты подключаются только локально: приложение не скачивает данные у производителей и никуда не
+          отправляет сведения об автомобиле. Пакет — обычный JSON-файл, его можно подготовить самому, взять из
+          руководства владельца или у сообщества. Любой пакет несёт пометку об источнике, и перед применением
+          показывается предпросмотр: что добавится, что обновится и что останется вашим.
+        </InfoNote>
+      </Card>
 
       <Card
         title="Напоминания на телефон"
