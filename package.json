@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "start:https": "NODE_ENV=production HTTPS_KEY=./.certs/key.pem HTTPS_CERT=./.certs/cert.pem node --import tsx server/src/index.ts",
     "cert": "node scripts/make-cert.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "token": "node scripts/make-token.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
