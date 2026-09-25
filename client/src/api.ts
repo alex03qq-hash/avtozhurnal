@@ -4,6 +4,8 @@
 
 import type {
   ChecklistItem,
+  Estimate,
+  EstimateItem,
   ConsumptionSegment,
   Database,
   Expense,
@@ -170,6 +172,30 @@ export const api = {
     request<{ recoveredFrom: string | null; backups: string[]; keepDays: number; accessProtected: boolean; dataFile: string }>(
       '/diagnostics',
     ),
+
+  estimateDraft: (body: { vehicleId?: string; ruleId: string; laborRate?: number }) =>
+    request<{
+      vehicleId: string;
+      ruleCode: string | null;
+      ruleName: string;
+      title: string;
+      parts: EstimateItem[];
+      laborHours: number;
+      laborRatePerHour: number;
+      laborDescription: string;
+      total: number;
+      confidence: number;
+      notes: string;
+    }>('/estimates/draft', { method: 'POST', body: JSON.stringify(body) }),
+  estimates: (vehicleId?: string) => request<Estimate[]>(`/estimates${vehicleId ? `?vehicleId=${vehicleId}` : ''}`),
+  estimateCreate: (body: Partial<Estimate>) => request<Estimate>('/estimates', { method: 'POST', body: JSON.stringify(body) }),
+  estimateRemove: (id: string) => request<{ ok: boolean }>(`/estimates/${id}`, { method: 'DELETE' }),
+  estimateAccept: (id: string) =>
+    request<{ ok: boolean; expenseId: string | null; total?: number; message: string }>(`/estimates/${id}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  estimateRate: () => request<{ rows: Array<{ name: string; article: string; price: number }>; laborRate: number }>('/estimates/sources'),
 
   stations: (vehicleId?: string) =>
     request<Array<{ station: string; count: number; lastPrice: number; lastDate: string; averagePrice: number | null }>>(
