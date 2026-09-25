@@ -8,6 +8,7 @@ import { USAGE_MULTIPLIERS } from '../utils/usage.ts';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Kpi, Loader, Modal, NumberInput, ProgressBar, Select, StatusBadge, TextArea, TextInput } from '../ui.tsx';
 import { formatDate, formatMoney, formatOdometer, todayISO } from '../../../shared/format.ts';
 import type { Estimate, EstimateItem, ServiceRule, WearStatus } from '../../../shared/types.ts';
+import { applyPricelist, parsePricelist } from '../../../shared/pricelist.ts';
 import { toStoredDistance as storeDistance, toDisplayDistance as showDistance } from '../utils/units.ts';
 import { toDisplayDistance, toStoredDistance } from '../utils/units.ts';
 
@@ -40,6 +41,8 @@ export default function ServicePage() {
   const [estimate, setEstimate] = useState<Awaited<ReturnType<typeof api.estimateDraft>> | null>(null);
   const savedEstimates = useLoad(() => api.estimates(vehicleId), [vehicleId], [] as Estimate[]);
   const [busyEstimate, setBusyEstimate] = useState(false);
+  // Список цен, скопированный из магазина или присланный сервисом: приложение само в интернет не ходит.
+  const [priceText, setPriceText] = useState('');
 
   const reload = reminders.reload;
 
@@ -509,6 +512,39 @@ export default function ServicePage() {
                   onChange={(e) => setEstimate({ ...estimate, laborRatePerHour: Number(e.target.value) || 0 })}
                 />
               </Field>
+            </div>
+
+            <div className="pricelist">
+              <Field
+                label="Вставить список цен"
+                hint="Скопируйте прайс из магазина или смету от сервиса — строки вида «Масляный фильтр W 712/95 — 690 ₽». Артикул важнее названия."
+              >
+                <TextArea
+                  value={priceText}
+                  onChange={(e) => setPriceText(e.target.value)}
+                  placeholder={'Масляный фильтр W 712/95 — 690 ₽\nМасло 0W-20 LL-17 FE+, 5 л — 6 400 ₽'}
+                />
+              </Field>
+              <Button
+                variant="secondary"
+                disabled={!priceText.trim()}
+                onClick={() => {
+                  const parsed = parsePricelist(priceText, 'вставленный список');
+                  if (!parsed.length) {
+                    notify('В списке не нашлось строк с ценой.', 'error');
+                    return;
+                  }
+                  const result = applyPricelist(estimate.parts, parsed);
+                  setEstimate({ ...estimate, parts: result.parts });
+                  notify(
+                    `Цены подставлены: ${result.matched} из ${estimate.parts.length}` +
+                      (result.leftovers.length ? `. Не использовано строк: ${result.leftovers.length} (${result.leftovers[0].name.slice(0, 40)})` : ''),
+                    result.matched ? 'success' : 'info',
+                  );
+                }}
+              >
+                Подставить цены
+              </Button>
             </div>
 
             <p className="estimate-total">
