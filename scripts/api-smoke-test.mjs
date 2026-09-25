@@ -39,7 +39,21 @@ async function call(path, options = {}) {
 const health = await call('/api/health');
 check('GET /api/health отвечает 200 и ok:true', health.status === 200 && health.body?.ok === true);
 
-const demo = await call('/api/demo', { method: 'POST' });
+// Загрузка демо-набора затирает весь журнал. Проверяем, что перед нами тестовая база,
+// иначе останавливаемся: этот тест однажды стёр рабочую базу владельца.
+const before = await call('/api/vehicles');
+const existingNames = Array.isArray(before.body) ? before.body.map((v) => String(v.name ?? '')) : [];
+const looksLikeTestData = existingNames.every((name) => /^(Веста|Leaf|Тестовая|Демо|Импортированная)/i.test(name));
+if (existingNames.length && !looksLikeTestData && process.env.SMOKE_FORCE !== '1') {
+  console.error('ОСТАНОВЛЕНО: в базе есть данные, не похожие на демонстрационные —');
+  console.error(`  машины: ${existingNames.join(', ')}`);
+  console.error('Тест загружает демо-набор и затрёт журнал. Запустите его на отдельном каталоге:');
+  console.error('  DATA_DIR=./data-smoke PORT=4444 npm start, затем BASE_URL=http://localhost:4444 node scripts/api-smoke-test.mjs');
+  console.error('Осознанный запуск против этой базы: SMOKE_FORCE=1');
+  process.exit(2);
+}
+
+const demo = await call('/api/demo', { method: 'POST', body: JSON.stringify({ confirm: true }) });
 const counts = demo.body?.summary ?? {};
 check(
   'POST /api/demo создаёт демонстрационный набор',
