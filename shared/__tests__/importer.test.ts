@@ -69,6 +69,33 @@ describe('импорт расходов', () => {
   });
 });
 
+describe('расстановка одометров по датам', () => {
+  const rows = [{ date: '2025-09-01' }, { date: '2025-10-01' }, { date: '2025-11-01' }, { date: '2025-12-01' }, { date: '2026-01-01' }];
+  const start = { date: '2025-09-01', odometer: 0 };
+  const end = { date: '2026-01-01', odometer: 4000 };
+
+  it('без известных замеров расставляет пробег линейно', () => {
+    const filled = distributeOdometers(rows, start, end);
+    expect(filled.map((row) => row.odometer)).toEqual([0, 984, 2000, 2984, 4000]);
+  });
+
+  it('учитывает известный замер из файла', () => {
+    const filled = distributeOdometers(rows, start, end, [{ date: '2025-11-01', odometer: 3000 }]);
+    expect(filled.map((row) => row.odometer)).toEqual([0, 1475, 3000, 3492, 4000]);
+  });
+
+  it('игнорирует замер, который ломает порядок (пробег назад)', () => {
+    const filled = distributeOdometers(rows, start, end, [{ date: '2025-12-01', odometer: 500 }]);
+    const values = filled.map((row) => row.odometer);
+    expect(values).toEqual([...values].sort((a, b) => a - b));
+  });
+
+  it('сохраняет порядок строк по датам', () => {
+    const filled = distributeOdometers([{ date: '2025-12-01' }, { date: '2025-09-01' }], start, end);
+    expect(filled.map((row) => row.date)).toEqual(['2025-09-01', '2025-12-01']);
+  });
+});
+
 describe('распределение по пробегу', () => {
   it('делит заправки пропорционально расстоянию', () => {
     const rows = Array.from({ length: 10 }, (_, i) => ({ date: '2025-06-01', label: `заправка ${i}` }));
