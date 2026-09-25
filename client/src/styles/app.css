@@ -2349,3 +2349,28 @@ body.modal-open {
   font-family: var(--font-mono);
   font-size: var(--fs-12);
 }
+
+/* Загрузка файла с историей расходов и заправок */
+.file-drop {
+  display: block;
+  padding: var(--space-6);
+  margin-bottom: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-13);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.file-drop:hover,
+.file-drop--over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-drop input {
+  display: none;
+}
