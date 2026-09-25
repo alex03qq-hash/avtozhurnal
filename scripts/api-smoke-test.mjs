@@ -106,7 +106,7 @@ const demoPack = {
   disclaimer: 'Проверочный пакет: интервалы выдуманы для теста, не применяйте к реальной машине.',
   items: [
     { code: 'smoke-oil', name: 'Проверочная замена масла', everyKm: 15000, everyMonths: 12, lifeKm: 15000, severity: 'required', category: 'maintenance', notes: 'Из пакета', estimatedCost: 6000, parts: [] },
-    { code: 'smoke-filter', name: 'Проверочный фильтр', everyKm: 30000, everyMonths: null, lifeKm: 30000, severity: 'recommended', category: 'maintenance', notes: '', estimatedCost: 1500, parts: [] },
+    { code: 'smoke-filter', name: 'Проверочный фильтр', everyKm: 30000, everyMonths: null, lifeKm: 30000, severity: 'recommended', category: 'maintenance', notes: '', estimatedCost: 1500, parts: [{ name: 'Масляный фильтр', article: 'SMOKE-FILTER-1', quantity: 1 }] },
   ],
 };
 
@@ -177,6 +177,63 @@ check(
   `${withPack?.packTitle} (ревизия ${withPack?.packRevision})`,
 );
 
+/* ── Смета на ТО: черновик из истории, сохранение, превращение в расход ── */
+
+// Сначала кладём в склад запчасть, чтобы подсказка цены нашла её по артикулу.
+await call('/api/parts', {
+  method: 'POST',
+  body: JSON.stringify({ vehicleId, name: 'Масляный фильтр', article: 'SMOKE-FILTER-1', vendor: 'Exist', price: 890, quantity: 1 }),
+});
+
+const stationRule = (await call(`/api/rules?vehicleId=${vehicleId}`)).body?.find((rule) => rule.code === 'smoke-filter');
+const draft = await call('/api/estimates/draft', {
+  method: 'POST',
+  body: JSON.stringify({ vehicleId, ruleId: stationRule?.id, laborRate: 2500 }),
+});
+check(
+  'Смета собирается по пункту регламента',
+  draft.status === 200 && Array.isArray(draft.body?.parts) && draft.body.parts.length > 0,
+  `${draft.body?.parts?.length} позиций, итог ${draft.body?.total} ₽`,
+);
+check(
+  'Состав берётся из пакета, цены — из истории журнала',
+  typeof draft.body?.notes === 'string' && draft.body.notes.includes('пакета'),
+  String(draft.body?.notes).slice(0, 80),
+);
+check(
+  'Итог сметы = детали + работы',
+  (() => {
+    const parts = draft.body?.parts ?? [];
+    const expected = parts.reduce((acc, row) => acc + row.quantity * row.unitPrice, 0) + draft.body.laborHours * draft.body.laborRatePerHour;
+    return Math.abs(expected - draft.body.total) < 0.01;
+  })(),
+  `итог ${draft.body?.total} ₽, достоверность ${draft.body?.confidence}`,
+);
+
+// Цена подтянулась из склада по артикулу
+const pricedPart = (draft.body?.parts ?? []).find((row) => row.article === 'SMOKE-FILTER-1');
+check('Цена позиции подсказана из склада', !pricedPart || pricedPart.priceSource === 'history', pricedPart ? `источник: ${pricedPart.priceSource}, цена ${pricedPart.unitPrice}` : 'в пакете нет артикулов — проверка неприменима');
+
+const saved = await call('/api/estimates', { method: 'POST', body: JSON.stringify({ ...draft.body, vehicleId }) });
+check('Смета сохраняется', saved.status === 201 && Boolean(saved.body?.id), `${saved.body?.title} — ${saved.body?.total} ₽`);
+
+const accepted = await call(`/api/estimates/${saved.body.id}/accept`, { method: 'POST', body: JSON.stringify({}) });
+const expensesAfter = await call(`/api/expenses?vehicleId=${vehicleId}`);
+const createdExpense = (expensesAfter.body ?? []).find((row) => row.id === accepted.body?.expenseId);
+check(
+  'Принятая смета превращается в расход',
+  accepted.status === 201 && Boolean(createdExpense) && createdExpense.amount === saved.body.total,
+  `расход «${createdExpense?.description}» на ${createdExpense?.amount} ₽`,
+);
+check(
+  'В расходе сохранена расшифровка сметы',
+  typeof createdExpense?.notes === 'string' && createdExpense.notes.includes('Из сметы'),
+  String(createdExpense?.notes).slice(0, 70),
+);
+
+const acceptedAgain = await call(`/api/estimates/${saved.body.id}/accept`, { method: 'POST', body: JSON.stringify({}) });
+check('Повторное принятие не создаёт второй расход', acceptedAgain.body?.alreadyAccepted === true, String(acceptedAgain.body?.message));
+
 /* ── Цены по АЗС ── */
 
 const stations = await call(`/api/stats/stations?vehicleId=${vehicleId}`);
@@ -223,6 +280,8 @@ check(
 
 /* ── Календарь напоминаний о ТО ── */
 
+// Список регламентов мог измениться из-за проверок выше — берём актуальный
+const remindersNow = await call(`/api/reminders?vehicleId=${vehicleId}`);
 const calendar = await callBytes(`/api/reminders/calendar.ics?vehicleId=${vehicleId}`);
 const ics = calendar.buffer.toString('utf8');
 const eventCount = (ics.match(/BEGIN:VEVENT/g) ?? []).length;
@@ -236,10 +295,15 @@ check(
   ics.startsWith('BEGIN:VCALENDAR\r\n') && ics.trimEnd().endsWith('END:VCALENDAR') && ics.includes('VERSION:2.0'),
 );
 check('Строки разделены по стандарту формата (CRLF)', ics.includes('\r\n') && !/[^\r]\n/.test(ics));
+// Событие получает каждый пункт, для которого можно определить дату:
+// либо у него есть срок по дате, либо известно, через сколько километров он наступит.
+const datedRules = (remindersNow.body?.items ?? []).filter(
+  (item) => item.remainingDays !== null || item.remainingKm !== null,
+).length;
 check(
-  'Событий столько же, сколько регламентов ТО',
-  eventCount === (reminders.body?.items?.length ?? -1),
-  `событий: ${eventCount}, регламентов: ${reminders.body?.items?.length}`,
+  'Событие есть у каждого пункта с определённым сроком',
+  eventCount === datedRules,
+  `событий: ${eventCount}, пунктов со сроком: ${datedRules} из ${(remindersNow.body?.items ?? []).length}`,
 );
 check(
   'В каждом событии есть дата и предупреждение заранее',
