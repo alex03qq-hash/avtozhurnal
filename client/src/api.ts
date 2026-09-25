@@ -5,6 +5,7 @@
 import type {
   ChecklistItem,
   Estimate,
+  ExpenseCategory,
   EstimateItem,
   ConsumptionSegment,
   Database,
@@ -196,6 +197,18 @@ export const api = {
       body: JSON.stringify({}),
     }),
   estimateRate: () => request<{ rows: Array<{ name: string; article: string; price: number }>; laborRate: number }>('/estimates/sources'),
+
+  importPreview: (body: { fuelText?: string; expensesText?: string }) =>
+    request<{
+      fuel: { count: number; sample: Array<{ date: string; volume: number | null; totalCost: number | null; station: string }>; totalLiters: number; totalCost: number };
+      expenses: { count: number; sample: Array<{ date: string; amount: number; description: string; categoryHint: ExpenseCategory | null }>; totalCost: number };
+    }>('/import/preview', { method: 'POST', body: JSON.stringify(body) }),
+  importFuel: (body: { text: string; variant: 'single' | 'mileage'; targets: Array<{ vehicleId: string; currentOdometer: number }>; markFullTank: boolean }) =>
+    request<{ ok: boolean; total: number; message: string }>('/import/fuel', { method: 'POST', body: JSON.stringify(body) }),
+  importExpenses: (body: { text: string; vehicleId?: string; defaultCategory?: ExpenseCategory }) =>
+    request<{ ok: boolean; created: number; message: string }>('/import/expenses', { method: 'POST', body: JSON.stringify(body) }),
+  importHint: () =>
+    request<Array<{ vehicleId: string; name: string; initialOdometer: number; purchaseDate: string | null; currentOdometer: number; fuelEntries: number }>>('/import/hint'),
 
   stations: (vehicleId?: string) =>
     request<Array<{ station: string; count: number; lastPrice: number; lastDate: string; averagePrice: number | null }>>(
