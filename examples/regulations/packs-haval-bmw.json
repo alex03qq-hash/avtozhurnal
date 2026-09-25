@@ -1,0 +1,477 @@
+{
+  "_comment": "Пакеты регламентов для Haval H7 (2025) и BMW X3 G48 (2025). Собраны по официальной странице регламентов HAVAL и дилерским регламентам BMW для РФ. Для тяжёлых условий значения заданы по каждому пункту отдельно. Точный перечень работ проверяйте по VIN и сервисной книжке.",
+  "packs": [
+    {
+      "schemaVersion": 1,
+      "revision": 1,
+      "packId": "haval.h7.2025.petrol.awd.ru",
+      "title": "HAVAL H7 (2025, бензин 2.0, 4WD, 7DCT) — регламент РФ",
+      "source": "public-data",
+      "sourceUrl": "https://haval.ru/owners/regulations-to/ · https://www.uservice.ru/service/regulations/haval/h7/",
+      "vendor": "Haval",
+      "models": [
+        "H7"
+      ],
+      "yearFrom": 2024,
+      "yearTo": 2030,
+      "fuelTypes": [
+        "petrol"
+      ],
+      "engineCodes": [
+        "GW4N20",
+        "GW4C20B"
+      ],
+      "usageMultiplier": {
+        "highway": 1,
+        "normal": 1,
+        "city": 1,
+        "severe": 1,
+        "taxi": 1
+      },
+      "disclaimer": "Регламент по официальной странице HAVAL для H7 (модельные годы 2024–2026) и таблицам сервисных работ. Интервалы визитов: ТО-1 — 10 000 км или 12 мес., далее каждые 15 000 км или 12 мес. Для тяжёлых условий (город, пробки, пыль, короткие поездки) производитель прямо рекомендует сокращать интервалы — в пакете это отдельные значения по маслу. Точный перечень работ для вашего VIN уточняйте у дилера.",
+      "items": [
+        {
+          "code": "oil-engine",
+          "name": "Моторное масло + масляный фильтр + шайба сливной пробки",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первое ТО — 10 000 км или 12 месяцев; далее визиты каждые 15 000 км (ТО-2 на 25 000, ТО-3 на 40 000 и так далее). После первого ТО поставьте в этом пункте 15 000 км — ваша настройка сохранится, пакет её не перезапишет.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Масляный фильтр",
+              "article": "",
+              "quantity": 1
+            },
+            {
+              "name": "Шайба сливной пробки",
+              "article": "",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "code": "filter-air",
+          "name": "Воздушный фильтр двигателя",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Меняется на каждом плановом ТО. Первое ТО — 10 000 км, далее каждые 15 000 км.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Воздушный фильтр",
+              "article": "",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "code": "filter-cabin",
+          "name": "Салонный фильтр",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Меняется на каждом плановом ТО. Первое ТО — 10 000 км, далее каждые 15 000 км.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Салонный фильтр",
+              "article": "",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "code": "filter-adsorber",
+          "name": "Фильтр адсорбера (топливный)",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "По таблице работ меняется на каждом ТО. Первое ТО — 10 000 км, далее каждые 15 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "spark-plugs",
+          "name": "Свечи зажигания",
+          "everyKm": 40000,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первая замена на 40 000 км (ТО-3), далее каждые 45 000 км: 85 000, 130 000 км. После первой замены поставьте 45 000 км.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Комплект свечей",
+              "article": "",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "code": "throttle-clean",
+          "name": "Чистка дроссельной заслонки",
+          "everyKm": 40000,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "check",
+          "category": "maintenance",
+          "notes": "Чистка вместе со свечами: первая на 40 000 км, далее каждые 45 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "brake-fluid",
+          "name": "Тормозная жидкость",
+          "everyKm": null,
+          "everyMonths": 24,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Замена каждые 2 года независимо от пробега. В таблице-источнике встречается и шаг 36 мес. — уточните у дилера.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "coolant",
+          "name": "Антифриз (охлаждающая жидкость)",
+          "everyKm": 80000,
+          "everyMonths": 48,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Каждые 4 года или 80 000 км — что наступит раньше.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "transmission-oil-dct",
+          "name": "Масло в АКПП (7DCT) + фильтр + корпус фильтра",
+          "everyKm": 55000,
+          "everyMonths": 48,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первая замена на 55 000 км или 48 мес., далее по тому же правилу.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "rear-diff-oil",
+          "name": "Масло заднего редуктора",
+          "everyKm": 40000,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первая замена на 40 000 км или 36 месяцев, далее каждые 100 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "transfer-case-oil",
+          "name": "Масло раздаточной коробки",
+          "everyKm": 40000,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первая замена на 40 000 км или 36 месяцев, далее каждые 45 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "awd-clutch-oil",
+          "name": "Масло муфты полного привода",
+          "everyKm": 55000,
+          "everyMonths": 48,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Интервал совпадает с маслом АКПП: 55 000 км / 48 мес.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "belt-drive",
+          "name": "Ремень генератора и водяного насоса",
+          "everyKm": 100000,
+          "everyMonths": null,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Замена каждые 100 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "tire-rotation",
+          "name": "Перестановка колёс",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "recommended",
+          "category": "tires",
+          "notes": "Выполняется на каждом плановом ТО. Первое ТО — 10 000 км, далее каждые 15 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "general-inspection",
+          "name": "Комплексная проверка (подвеска, тормоза, жидкости, свет)",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "check",
+          "category": "maintenance",
+          "notes": "Обязательный пункт каждого ТО: осмотр тормозов, шарниров, радиаторов, утечек. Интервал первого ТО — 10 000 км.",
+          "estimatedCost": null,
+          "parts": []
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "revision": 1,
+      "packId": "bmw.x3.g48.2025.petrol.ru",
+      "title": "BMW X3 30Li Long M Premium (G48, 2025) — регламент РФ (CBS + жёсткие лимиты)",
+      "source": "public-data",
+      "sourceUrl": "https://bmw-sto.ru/modeli/bmw/bmw-x3/bmw-x3-30l-xdrive-g45-g48/tekhnicheskoe-obsluzhivanie-bmwg45-30lx/",
+      "vendor": "BMW",
+      "models": [
+        "X3"
+      ],
+      "yearFrom": 2024,
+      "yearTo": 2030,
+      "fuelTypes": [
+        "petrol"
+      ],
+      "engineCodes": [
+        "B48",
+        "B58"
+      ],
+      "usageMultiplier": {
+        "highway": 1,
+        "normal": 1,
+        "city": 1,
+        "severe": 1,
+        "taxi": 1
+      },
+      "disclaimer": "Заводская система CBS сама рассчитывает сроки; для рынка РФ дилеры применяют жёсткий регламент — плановое ТО каждые 10 000 км или 12 месяцев. Поэтому по маслу заданы два значения: заводской предел CBS (30 000 км / 24 мес.) и жёсткий лимит для тяжёлых условий (10 000 км / 12 мес.). Итоговый перечень работ определяется по VIN в системе BMW.",
+      "items": [
+        {
+          "code": "oil-engine",
+          "name": "Моторное масло + масляный фильтр (Oilservice)",
+          "everyKm": 30000,
+          "everyMonths": 24,
+          "severeEveryKm": 10000,
+          "severeEveryMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Заводской предел CBS — 30 000 км / 24 мес. Дилеры в РФ рекомендуют 10 000 км / 12 мес. — этот вариант применяется как жёсткий лимит. Масло с допуском BMW Longlife-17 FE+.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Масляный фильтр",
+              "article": "",
+              "quantity": 1
+            },
+            {
+              "name": "Масло BMW LL-17 FE+",
+              "article": "",
+              "quantity": 0
+            }
+          ]
+        },
+        {
+          "code": "filter-air",
+          "name": "Воздушный фильтр двигателя",
+          "everyKm": 20000,
+          "everyMonths": 24,
+          "severeEveryKm": 20000,
+          "severeEveryMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "В базовое Oilservice часто входит проверка, замена — раз в 20 000 км или 2 года. В таблице-источнике встречается шаг 40 000 км — уточните по VIN.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "filter-cabin",
+          "name": "Салонный фильтр (угольный / микроволокно)",
+          "everyKm": 20000,
+          "everyMonths": 24,
+          "severeEveryKm": 15000,
+          "severeEveryMonths": 12,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Замена раз в 20 000 км или 2 года; при аллергии и в пыльном городе — ежегодно.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "spark-plugs",
+          "name": "Свечи зажигания (B48/B58)",
+          "everyKm": 40000,
+          "everyMonths": 48,
+          "severeEveryKm": 30000,
+          "severeEveryMonths": 36,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Стандартный интервал 40 000 км. В РФ из-за нагрузки на катушки и качества топлива сервисы рекомендуют не тянуть до 60 000.",
+          "estimatedCost": null,
+          "parts": [
+            {
+              "name": "Комплект свечей",
+              "article": "",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "code": "brake-fluid",
+          "name": "Тормозная жидкость (DOT-4, Low Viscosity)",
+          "everyKm": null,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Первая замена через 3 года после выпуска, далее каждые 2 года (или 30–40 тыс. км). После первой замены поставьте 24 месяца.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "coolant",
+          "name": "Охлаждающая жидкость (антифриз)",
+          "everyKm": null,
+          "everyMonths": 36,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "required",
+          "category": "maintenance",
+          "notes": "Замена каждые 3 года (ориентировочно 40 000 км) — важно для защиты системы охлаждения от коррозии.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "transmission-oil-zf",
+          "name": "Масло в АКПП (ZF 8HP) + поддон с фильтром",
+          "everyKm": 80000,
+          "everyMonths": 72,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "recommended",
+          "category": "maintenance",
+          "notes": "BMW называет масло «на весь срок службы», но производитель коробки ZF и профильные сервисы рекомендуют замену на 60–80 тыс. км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "diff-transfer-oil",
+          "name": "Масло в редукторах и раздатке (xDrive)",
+          "everyKm": 60000,
+          "everyMonths": 72,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "recommended",
+          "category": "maintenance",
+          "notes": "Для xDrive рекомендуют контролировать уровень и менять масло каждые 50–60 тыс. км.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "radiator-clean",
+          "name": "Мойка радиаторов («сэндвич») со снятием",
+          "everyKm": null,
+          "everyMonths": 24,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "recommended",
+          "category": "maintenance",
+          "notes": "Профилактика перегрева двигателя и АКПП: раз в 2 года или при загрязнении.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "brake-wear-check",
+          "name": "Контроль износа колодок и дисков, датчиков износа",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "check",
+          "category": "maintenance",
+          "notes": "На каждом ТО.",
+          "estimatedCost": null,
+          "parts": []
+        },
+        {
+          "code": "diagnostic-scan",
+          "name": "Компьютерная диагностика и сброс сервисного интервала CBS",
+          "everyKm": 10000,
+          "everyMonths": 12,
+          "severeEveryKm": null,
+          "severeEveryMonths": null,
+          "lifeKm": null,
+          "severity": "check",
+          "category": "maintenance",
+          "notes": "Обязательный этап визита к дилеру для корректной работы бортового компьютера.",
+          "estimatedCost": null,
+          "parts": []
+        }
+      ]
+    }
+  ]
+}
