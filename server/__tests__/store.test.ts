@@ -40,6 +40,29 @@ function makeVehicle(id: string, name: string): Vehicle {
   };
 }
 
+describe('спасательные копии перед необратимыми действиями', () => {
+  it('создаёт копию, которую не перезаписывает и не удаляет', async () => {
+    const dir = await freshDir('snapshot');
+    const store = new Store(dir);
+    await store.init();
+    await store.mutate((db) => {
+      db.vehicles.push(makeVehicle('owner-1', 'Машина владельца'));
+    });
+
+    const first = await store.snapshot('before-demo');
+    expect(first).toMatch(/^db\.json\.rescue-before-demo-/);
+    expect(await store.listSnapshots()).toContain(first);
+
+    // Вторая копия не затирает первую: обе доступны
+    await store.snapshot('before-import');
+    expect((await store.listSnapshots()).length).toBe(2);
+
+    // Копия действительно содержит данные владельца
+    const copy = JSON.parse(await fsp.readFile(path.join(dir, first), 'utf8'));
+    expect(copy.vehicles.some((v) => v.name === 'Машина владельца')).toBe(true);
+  });
+});
+
 describe('хранилище на JSON-файле', () => {
   it('при первом запуске создаёт файл с пустыми коллекциями и чек-листом по умолчанию', async () => {
     const store = new Store(await freshDir('init'));
