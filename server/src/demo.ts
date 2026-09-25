@@ -348,5 +348,5 @@ export function buildDemoData(today = new Date()): Omit<Database, 'settings' | '
     lastCheckedAt: item.order <= 3 ? addDays(todayIso, -2) : null,
   }));
 
-  return { vehicles: [vesta, leaf], fuel, expenses, incomes, trips, parts, rules, checklist };
+  return { vehicles: [vesta, leaf], fuel, expenses, incomes, trips, parts, rules, estimates: [], checklist };
 }

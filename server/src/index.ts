@@ -18,6 +18,7 @@ import { createStatsRouter } from './routes/stats.ts';
 import { createIoRouter } from './routes/io.ts';
 import { createPhotosRouter } from './routes/photos.ts';
 import { createRegulationsRouter } from './routes/regulations.ts';
+import { createEstimatesRouter } from './routes/estimates.ts';
 import { PhotoStore } from './photo-store.ts';
 import { RegulationLibrary } from './regulations.ts';
 import { buildServerInfo } from './network.ts';
@@ -77,6 +78,7 @@ for (const name of collections) {
 app.use('/api', createPhotosRouter(store, photoStore));
 app.use('/api', createStatsRouter(store));
 app.use('/api', createRegulationsRouter(store, regulations));
+app.use('/api', createEstimatesRouter(store, regulations));
 app.use(
   '/api',
   createIoRouter(store, { port: PORT, host: HOST }, { photosDir: photoStore.directory, regulationsDir: regulations.directory }),
