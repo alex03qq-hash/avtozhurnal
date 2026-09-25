@@ -325,7 +325,16 @@ export function monthlySeries(
  *   soon    — остаток меньше или равен порогу предупреждения;
  *   ok      — всё в порядке.
  */
-export function wearStatus(rule: ServiceRule, odometer: number, today = new Date()): WearStatus {
+export function wearStatus(
+  rule: ServiceRule,
+  odometer: number,
+  today = new Date(),
+  /**
+   * Дата покупки автомобиля. Используется как начало отсчёта для пунктов по времени,
+   * у которых ещё не отмечали замену: у новой машины сроки идут от дня передачи владельцу.
+   */
+  startFrom: string | null = null,
+): WearStatus {
   const todayISO = today.toISOString().slice(0, 10);
 
   let remainingKm: number | null = null;
@@ -337,8 +346,9 @@ export function wearStatus(rule: ServiceRule, odometer: number, today = new Date
 
   let remainingDays: number | null = null;
   let nextServiceDate: string | null = null;
-  if (rule.intervalDays !== null && rule.lastServiceDate) {
-    nextServiceDate = addDays(rule.lastServiceDate, rule.intervalDays);
+  const dateBase = rule.lastServiceDate ?? startFrom;
+  if (rule.intervalDays !== null && dateBase) {
+    nextServiceDate = addDays(dateBase, rule.intervalDays);
     remainingDays = daysBetween(todayISO, nextServiceDate);
   }
 
@@ -374,10 +384,15 @@ export function wearStatus(rule: ServiceRule, odometer: number, today = new Date
 }
 
 /** Все регламенты автомобиля со статусами, отсортированные: просрочено → скоро → норма. */
-export function buildReminders(rules: ServiceRule[], odometer: number, today = new Date()): WearStatus[] {
+export function buildReminders(
+  rules: ServiceRule[],
+  odometer: number,
+  today = new Date(),
+  startFrom: string | null = null,
+): WearStatus[] {
   const severity: Record<RuleStatus, number> = { overdue: 0, soon: 1, ok: 2 };
   return rules
-    .map((rule) => wearStatus(rule, odometer, today))
+    .map((rule) => wearStatus(rule, odometer, today, startFrom))
     .sort((a, b) => {
       if (severity[a.status] !== severity[b.status]) return severity[a.status] - severity[b.status];
       const am = a.remainingKm ?? Number.POSITIVE_INFINITY;
