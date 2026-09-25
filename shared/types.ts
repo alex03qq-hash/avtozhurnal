@@ -49,6 +49,8 @@ export interface Vehicle extends BaseEntity {
   /** Пробег на момент начала учёта (км). */
   initialOdometer: number;
   purchaseDate: string | null;
+  /** Условия эксплуатации: влияют на пересчёт заводского интервала ТО. */
+  usageClass?: UsageClass;
   isArchived: boolean;
   color: string;
   notes: string;
@@ -128,6 +130,54 @@ export interface Part extends BaseEntity {
   notes: string;
 }
 
+/** Условия эксплуатации: влияют на то, как часто обслуживать машину. */
+export type UsageClass = 'highway' | 'normal' | 'city' | 'severe' | 'taxi';
+
+/** Пункт заводского регламента в составе пакета. */
+export interface RegulationItem {
+  /** Стабильный код пункта: по нему пакет обновляется, не теряя историю замен. */
+  code: string;
+  name: string;
+  everyKm: number | null;
+  everyMonths: number | null;
+  /** Полный ресурс детали (для процента износа) — не то же самое, что интервал замены. */
+  lifeKm: number | null;
+  severity: 'required' | 'recommended' | 'check';
+  category: ExpenseCategory;
+  notes: string;
+  /** Ориентировочная стоимость работ и расходников, ₽ — для прогноза затрат. */
+  estimatedCost: number | null;
+  parts: Array<{ name: string; article: string; quantity: number }>;
+}
+
+/**
+ * Пакет регламентов: локальный файл с заводскими интервалами.
+ * Никакой онлайн-загрузки: файл либо лежит в data/regulations/packs, либо импортируется вручную.
+ * Источник и предупреждение хранятся внутри пакета — их видит пользователь.
+ */
+export interface RegulationPack {
+  /** Версия формата файла: нужна приложению, чтобы понимать структуру. */
+  schemaVersion: number;
+  /** Ревизия самих данных пакета: её видит пользователь и она растёт при правках. */
+  revision: number;
+  packId: string;
+  title: string;
+  /** owner-manual — руководство владельца, public-data — открытые данные, user — свой шаблон. */
+  source: 'owner-manual' | 'public-data' | 'user';
+  sourceUrl: string;
+  vendor: string;
+  models: string[];
+  yearFrom: number | null;
+  yearTo: number | null;
+  fuelTypes: FuelType[];
+  engineCodes: string[];
+  /** Множители интервала по условиям эксплуатации: 1.0 — как у производителя. */
+  usageMultiplier: Partial<Record<UsageClass, number>>;
+  /** Текст, который обязательно показывается рядом с применённым регламентом. */
+  disclaimer: string;
+  items: RegulationItem[];
+}
+
 /** Регламент обслуживания: задаёт и напоминание, и расчёт износа. */
 export interface ServiceRule extends BaseEntity {
   vehicleId: Id;
@@ -145,6 +195,23 @@ export interface ServiceRule extends BaseEntity {
   /** За сколько дней до срока предупреждать. */
   warnDaysBefore: number;
   notes: string;
+
+  /* ── Связь с пакетом регламентов (все поля необязательные) ── */
+  /** Код пункта в пакете — по нему обновление находит пункт, не плодя дубли. */
+  code?: string | null;
+  /** Откуда пункт: 'pack' — из пакета регламентов, 'user' — создан вручную. */
+  origin?: 'user' | 'pack';
+  packId?: string | null;
+  packTitle?: string | null;
+  /** Ревизия данных пакета — отдельно от версии формата файла. */
+  packRevision?: number | null;
+  /** Заметки, пришедшие из пакета: заметки пользователя хранятся в notes и не затираются. */
+  packNotes?: string | null;
+  /** Заводской интервал и интервал с учётом условий — чтобы видеть, откуда взялась цифра. */
+  manufacturerIntervalKm?: number | null;
+  manufacturerIntervalDays?: number | null;
+  /** Пользователь правил интервал вручную: при обновлении пакета такое не перезаписывается. */
+  userOverridden?: boolean;
 }
 
 export interface ChecklistItem extends BaseEntity {
