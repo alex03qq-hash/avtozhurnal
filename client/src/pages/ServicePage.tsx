@@ -6,8 +6,8 @@ import { useApp } from '../store.tsx';
 import { useLoad } from '../hooks/useLoad.ts';
 import { USAGE_MULTIPLIERS } from '../utils/usage.ts';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, InfoNote, Kpi, Loader, Modal, NumberInput, ProgressBar, Select, StatusBadge, TextArea, TextInput } from '../ui.tsx';
-import { formatDate, formatOdometer, todayISO } from '../../../shared/format.ts';
-import type { ServiceRule, WearStatus } from '../../../shared/types.ts';
+import { formatDate, formatMoney, formatOdometer, todayISO } from '../../../shared/format.ts';
+import type { Estimate, EstimateItem, ServiceRule, WearStatus } from '../../../shared/types.ts';
 import { toStoredDistance as storeDistance, toDisplayDistance as showDistance } from '../utils/units.ts';
 import { toDisplayDistance, toStoredDistance } from '../utils/units.ts';
 
@@ -36,6 +36,10 @@ export default function ServicePage() {
   const [busyPack, setBusyPack] = useState<string | null>(null);
   // Правка регламента: без неё человек удалял бы пункт и создавал заново, теряя историю замен.
   const [editing, setEditing] = useState<ServiceRule | null>(null);
+  // Смета на ТО: черновик по пункту регламента, цены подсказываются по истории журнала.
+  const [estimate, setEstimate] = useState<Awaited<ReturnType<typeof api.estimateDraft>> | null>(null);
+  const savedEstimates = useLoad(() => api.estimates(vehicleId), [vehicleId], [] as Estimate[]);
+  const [busyEstimate, setBusyEstimate] = useState(false);
 
   const reload = reminders.reload;
 
@@ -307,6 +311,20 @@ export default function ServicePage() {
                   <Button size="sm" variant="secondary" onClick={() => item.rule && setEditing({ ...item.rule })} disabled={!item.rule}>
                     Изменить
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={async () => {
+                      if (!item.rule) return;
+                      try {
+                        setEstimate(await api.estimateDraft({ vehicleId: activeVehicle?.id, ruleId: item.rule.id }));
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : 'Не удалось собрать смету.', 'error');
+                      }
+                    }}
+                  >
+                    Смета
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => void remove(item)}>
                     Удалить
                   </Button>
@@ -316,6 +334,196 @@ export default function ServicePage() {
           </ul>
         )}
       </Card>
+
+      <Card
+        className="no-print"
+        title="Сметы на ремонт"
+        subtitle="Сколько будет стоить по вашим данным: цены подсказываются из истории покупок и трат"
+      >
+        {savedEstimates.data.length === 0 ? (
+          <InfoNote>
+            Смет пока нет. Нажмите «Смета» рядом с любым пунктом обслуживания — приложение соберёт состав работ
+            из пакета регламента и подставит цены из вашей истории. Принятая смета превращается в обычный расход.
+          </InfoNote>
+        ) : (
+          <ul className="estimate-list">
+            {savedEstimates.data.map((row) => (
+              <li key={row.id}>
+                <span className="estimate-list__title">{row.title}</span>
+                <span className="estimate-list__sum">{formatMoney(row.total)}</span>
+                <span className="hint-line">
+                  {row.status === 'accepted' ? 'расход создан' : `смета от ${formatDate(row.createdAt.slice(0, 10))}`}
+                  {' · '}цены подтверждены на {Math.round(row.confidence * 100)}%
+                </span>
+                {row.status !== 'accepted' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        const result = await api.estimateAccept(row.id);
+                        notify(result.message, 'success');
+                        await savedEstimates.reload();
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : 'Не удалось создать расход.', 'error');
+                      }
+                    }}
+                  >
+                    Создать расход
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    try {
+                      await api.estimateRemove(row.id);
+                      await savedEstimates.reload();
+                      notify('Смета удалена.', 'success');
+                    } catch (err) {
+                      notify(err instanceof Error ? err.message : 'Не удалось удалить смету.', 'error');
+                    }
+                  }}
+                >
+                  Удалить
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Modal
+        open={Boolean(estimate)}
+        title="Смета на ТО"
+        wide
+        onClose={() => setEstimate(null)}
+        footer={
+          <>
+            <Button onClick={() => setEstimate(null)}>Отмена</Button>
+            <Button
+              variant="secondary"
+              disabled={busyEstimate}
+              onClick={async () => {
+                if (!estimate) return;
+                setBusyEstimate(true);
+                try {
+                  await api.estimateCreate({ ...estimate, vehicleId: estimate.vehicleId });
+                  await savedEstimates.reload();
+                  setEstimate(null);
+                  notify('Смета сохранена.', 'success');
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : 'Не удалось сохранить смету.', 'error');
+                } finally {
+                  setBusyEstimate(false);
+                }
+              }}
+            >
+              Сохранить смету
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busyEstimate}
+              onClick={async () => {
+                if (!estimate) return;
+                setBusyEstimate(true);
+                try {
+                  const created = await api.estimateCreate({ ...estimate, vehicleId: estimate.vehicleId });
+                  const result = await api.estimateAccept(created.id);
+                  await savedEstimates.reload();
+                  setEstimate(null);
+                  notify(result.message, 'success');
+                } catch (err) {
+                  notify(err instanceof Error ? err.message : 'Не удалось создать расход.', 'error');
+                } finally {
+                  setBusyEstimate(false);
+                }
+              }}
+            >
+              Сохранить и создать расход
+            </Button>
+          </>
+        }
+      >
+        {estimate && (
+          <div className="estimate-form">
+            <p className="hint-line">{estimate.notes}</p>
+            <table className="estimate-table">
+              <thead>
+                <tr>
+                  <th>Позиция</th>
+                  <th className="is-right">Кол-во</th>
+                  <th className="is-right">Цена, ₽</th>
+                  <th className="is-right">Сумма</th>
+                  <th>Откуда цена</th>
+                </tr>
+              </thead>
+              <tbody>
+                {estimate.parts.map((row, index) => (
+                  <tr key={`${row.name}-${index}`}>
+                    <td>
+                      <TextInput
+                        value={row.name}
+                        onChange={(e) => {
+                          const parts = [...estimate.parts];
+                          parts[index] = { ...row, name: e.target.value };
+                          setEstimate({ ...estimate, parts });
+                        }}
+                      />
+                      {row.article && <span className="hint-line">артикул {row.article}</span>}
+                    </td>
+                    <td className="is-right">
+                      <NumberInput
+                        value={row.quantity}
+                        onChange={(e) => {
+                          const parts = [...estimate.parts];
+                          parts[index] = { ...row, quantity: Number(e.target.value) || 1 };
+                          setEstimate({ ...estimate, parts, total: 0 });
+                        }}
+                      />
+                    </td>
+                    <td className="is-right">
+                      <NumberInput
+                        value={row.unitPrice}
+                        onChange={(e) => {
+                          const parts = [...estimate.parts];
+                          parts[index] = { ...row, unitPrice: Number(e.target.value) || 0, priceSource: 'manual', note: 'цена вписана вручную' };
+                          setEstimate({ ...estimate, parts });
+                        }}
+                      />
+                    </td>
+                    <td className="is-right">{formatMoney(row.quantity * row.unitPrice)}</td>
+                    <td className="hint-line">{row.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="form-grid">
+              <Field label="Часы работ">
+                <NumberInput value={estimate.laborHours} onChange={(e) => setEstimate({ ...estimate, laborHours: Number(e.target.value) || 0 })} />
+              </Field>
+              <Field label="Ставка за час, ₽">
+                <NumberInput
+                  value={estimate.laborRatePerHour}
+                  onChange={(e) => setEstimate({ ...estimate, laborRatePerHour: Number(e.target.value) || 0 })}
+                />
+              </Field>
+            </div>
+
+            <p className="estimate-total">
+              Итого: {formatMoney(
+                estimate.parts.reduce((acc, row) => acc + row.quantity * row.unitPrice, 0) + estimate.laborHours * estimate.laborRatePerHour,
+              )}
+              <span className="hint-line">
+                {' '}цены подтверждены историей на {Math.round(
+                  (estimate.parts.filter((row) => row.priceSource !== 'manual').length / Math.max(1, estimate.parts.length)) * 100,
+                )}%
+              </span>
+            </p>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={Boolean(editing)}
