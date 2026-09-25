@@ -246,17 +246,46 @@ export function distributeOdometers<T extends { date: string }>(
   rows: T[],
   start: { date: string; odometer: number },
   end: { date: string; odometer: number },
+  anchors: Array<{ date: string; odometer: number }> = [],
 ): Array<T & { odometer: number }> {
   if (!rows.length) return [];
-  const totalDays = Math.max(1, daysBetween(start.date, end.date));
-  const totalKm = Math.max(0, end.odometer - start.odometer);
+
+  // Точки, между которыми считаем пробег: начало учёта, известные замеры из файла и сегодняшний пробег.
+  // Несогласованные замеры (пробег «назад») отбрасываем, иначе расчёт поедет в минус.
+  const points = [...anchors, start, end]
+    .filter((point) => Number.isFinite(point.odometer))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.odometer - b.odometer);
+  const clean: Array<{ date: string; odometer: number }> = [];
+  for (const point of points) {
+    if (!clean.length || point.odometer >= clean[clean.length - 1].odometer) clean.push(point);
+  }
+  if (clean.length < 2) return rows.map((row) => ({ ...row, odometer: Math.round(start.odometer) }));
 
   return rows
     .map((row, index) => {
-      const elapsed = Math.max(0, Math.min(totalDays, daysBetween(start.date, row.date)));
-      const share = row.date >= end.date ? 1 : elapsed / totalDays;
-      return { ...row, odometer: round(start.odometer + totalKm * share, 0), __index: index };
+      let lower = clean[0];
+      let upper = clean[1];
+      for (let i = 0; i < clean.length - 1; i += 1) {
+        if (row.date >= clean[i].date && row.date <= clean[i + 1].date) {
+          lower = clean[i];
+          upper = clean[i + 1];
+          break;
+        }
+      }
+      if (row.date < clean[0].date) {
+        lower = clean[0];
+        upper = clean[1];
+      }
+      if (row.date > clean[clean.length - 1].date) {
+        lower = clean[clean.length - 2];
+        upper = clean[clean.length - 1];
+      }
+      const span = Math.max(1, daysBetween(lower.date, upper.date));
+      const elapsed = Math.max(0, Math.min(span, daysBetween(lower.date, row.date)));
+      const km = upper.odometer - lower.odometer;
+      return { ...row, odometer: round(lower.odometer + km * (elapsed / span), 0), __index: index };
     })
     .sort((a, b) => a.date.localeCompare(b.date) || a.__index - b.__index)
     .map(({ __index, ...rest }) => rest as T & { odometer: number });
 }
+
