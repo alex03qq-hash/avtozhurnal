@@ -96,6 +96,8 @@ export function validatePack(input: unknown): RegulationPack {
       name: String(row.name).slice(0, 160),
       everyKm: Number.isFinite(everyKm) && everyKm > 0 ? Math.round(everyKm) : null,
       everyMonths: Number.isFinite(everyMonths) && everyMonths > 0 ? Math.round(everyMonths) : null,
+      severeEveryKm: Number.isFinite(Number(row.severeEveryKm)) && Number(row.severeEveryKm) > 0 ? Math.round(Number(row.severeEveryKm)) : null,
+      severeEveryMonths: Number.isFinite(Number(row.severeEveryMonths)) && Number(row.severeEveryMonths) > 0 ? Math.round(Number(row.severeEveryMonths)) : null,
       lifeKm: Number.isFinite(Number(row.lifeKm)) && Number(row.lifeKm) > 0 ? Math.round(Number(row.lifeKm)) : null,
       severity: row.severity === 'recommended' || row.severity === 'check' ? row.severity : 'required',
       category: (row.category ?? 'maintenance') as RegulationItem['category'],
@@ -259,6 +261,8 @@ export class RegulationLibrary {
    */
   apply(rules: ServiceRule[], vehicle: Vehicle, pack: RegulationPack, mode: ApplyMode): ApplyResult {
     const usageClass: UsageClass = vehicle.usageClass ?? 'normal';
+    // Тяжёлые условия: город, пробки, пыль, короткие поездки, такси.
+    const hard = usageClass === 'city' || usageClass === 'severe' || usageClass === 'taxi';
     const multiplier = pack.usageMultiplier[usageClass] ?? USAGE_CLASS_MULTIPLIER[usageClass] ?? 1;
     const now = new Date().toISOString();
 
@@ -271,11 +275,21 @@ export class RegulationLibrary {
 
     for (const item of pack.items) {
       const existing = byCode.get(item.code);
-      const effectiveKm = item.everyKm !== null ? Math.max(100, Math.round(item.everyKm * multiplier)) : null;
+      // Если пакет задал интервал для тяжёлых условий — берём его, а не общий множитель.
+      // != null (нестрогое сравнение) отсекает и null, и отсутствующее поле — данные пакета приходят извне.
+      const useSevereKm = hard && item.severeEveryKm != null && item.severeEveryKm > 0;
+      const useSevereMonths = hard && item.severeEveryMonths != null && item.severeEveryMonths > 0;
+      const baseKm = useSevereKm ? item.severeEveryKm : item.everyKm;
+      const baseMonths = useSevereMonths ? item.severeEveryMonths : item.everyMonths;
+      const scale = useSevereKm || useSevereMonths ? 1 : multiplier;
+      const effectiveKm = baseKm !== null ? Math.max(100, Math.round(baseKm * scale)) : null;
       // Средняя длина месяца 30,44 дня: 12 месяцев — это 365 дней, а не 360 (иначе срок «уезжает»).
-      const effectiveDays = item.everyMonths !== null ? Math.max(1, Math.round(item.everyMonths * 30.44 * multiplier)) : null;
+      const effectiveDays = baseMonths !== null ? Math.max(1, Math.round(baseMonths * 30.44 * scale)) : null;
       // Ресурс детали берём только из пакета: подменять его интервалом нельзя — процент износа станет врать.
       const lifeKm = item.lifeKm !== null ? Math.max(100, Math.round(item.lifeKm * multiplier)) : null;
+
+      // Точка отсчёта по времени: у новой машины сроки идут от даты покупки.
+      const startDate = vehicle.purchaseDate ?? null;
 
       if (!existing) {
         rules.push({
@@ -288,7 +302,7 @@ export class RegulationLibrary {
           intervalDays: effectiveDays,
           componentLifeKm: lifeKm,
           lastServiceOdometer: null,
-          lastServiceDate: null,
+          lastServiceDate: startDate,
           warnKmBefore: item.severity === 'check' ? 500 : 1000,
           warnDaysBefore: 14,
           notes: item.notes,
@@ -302,7 +316,12 @@ export class RegulationLibrary {
           userOverridden: false,
         });
         result.added += 1;
-        result.preview.push({ code: item.code, name: item.name, action: 'add', reason: `новый пункт: ${effectiveKm ?? '—'} км / ${effectiveDays ?? '—'} дн.` });
+        result.preview.push({
+          code: item.code,
+          name: item.name,
+          action: 'add',
+          reason: `новый пункт: ${effectiveKm ?? '—'} км / ${effectiveDays ?? '—'} дн.${useSevereKm || useSevereMonths ? ' (для тяжёлых условий)' : ''}`,
+        });
         continue;
       }
 
@@ -345,7 +364,12 @@ export class RegulationLibrary {
       existing.manufacturerIntervalDays = item.everyMonths !== null ? Math.round(item.everyMonths * 30.44) : null;
       existing.updatedAt = now;
       result.updated += 1;
-      result.preview.push({ code: item.code, name: item.name, action: 'update', reason: `интервал обновлён: ${effectiveKm ?? '—'} км / ${effectiveDays ?? '—'} дн.` });
+      result.preview.push({
+        code: item.code,
+        name: item.name,
+        action: 'update',
+        reason: `интервал обновлён: ${effectiveKm ?? '—'} км / ${effectiveDays ?? '—'} дн.${useSevereKm || useSevereMonths ? ' (для тяжёлых условий)' : ''}`,
+      });
     }
 
     // Пункты, которых нет в пакете, не трогаем — они остаются пользовательскими.
