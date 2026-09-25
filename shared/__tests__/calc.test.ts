@@ -231,6 +231,16 @@ describe('износ и напоминания', () => {
     expect(status.remainingDays).toBe(12);
   });
 
+  it('считает срок по времени от даты покупки, если замен ещё не было', () => {
+    const fresh = { ...rule, lastServiceOdometer: null, lastServiceDate: null };
+    const status = wearStatus(fresh, 0, new Date('2026-03-01T00:00:00Z'), '2025-09-01');
+    // 12 месяцев от покупки: 1 сентября 2026 — осталось 184 дня
+    expect(status.nextServiceDate).toBe('2026-09-01');
+    expect(status.remainingDays).toBe(184);
+    // Пробег тоже считается от нуля, потому что история не заполнена
+    expect(status.remainingKm).toBeNull();
+  });
+
   it('считает процент износа детали', () => {
     const status = wearStatus(rule, 103500, new Date('2026-03-01T00:00:00Z'));
     expect(status.usedKm).toBe(8500);
