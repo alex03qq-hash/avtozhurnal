@@ -1,7 +1,7 @@
 /** Тесты кода доступа: пригодность кода и поведение проверки запросов. */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createAuthMiddleware, describeTokenProblem } from '../src/auth.ts';
+import { createAuthMiddleware, describeTokenProblem, resetRateLimit } from '../src/auth.ts';
 
 function fakeRequest(overrides: Record<string, unknown> = {}) {
   return {
@@ -47,6 +47,43 @@ describe('пригодность кода доступа', () => {
 
   it('отклоняет слишком короткий код', () => {
     expect(describeTokenProblem('123')).toMatch(/коротк/i);
+  });
+});
+
+describe('ограничение попыток ввода кода', () => {
+  it('блокирует адрес после пяти неверных попыток, но пропускает верный код', () => {
+    resetRateLimit();
+    const middleware = createAuthMiddleware('garage-4821');
+    const request = () => fakeRequest({ headers: { 'x-access-token': 'wrong-code' }, ip: '10.0.0.9' });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = fakeResponse();
+      middleware(request(), response, vi.fn());
+      expect(response.statusCode).toBe(401);
+    }
+
+    const blocked = fakeResponse();
+    middleware(request(), blocked, vi.fn());
+    expect(blocked.statusCode).toBe(429);
+    expect((blocked.body as { code?: string }).code).toBe('too_many_attempts');
+
+    // Владелец не должен запирать себя сам: верный код проходит даже во время блокировки
+    const allowed = fakeResponse();
+    const next = vi.fn();
+    middleware(fakeRequest({ headers: { 'x-access-token': 'garage-4821' }, ip: '10.0.0.9' }), allowed, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('успешный вход сбрасывает счётчик неудач', () => {
+    resetRateLimit();
+    const middleware = createAuthMiddleware('garage-4821');
+    const bad = fakeRequest({ headers: { 'x-access-token': 'wrong' }, ip: '10.0.0.8' });
+    for (let attempt = 0; attempt < 4; attempt += 1) middleware(bad, fakeResponse(), vi.fn());
+    middleware(fakeRequest({ headers: { 'x-access-token': 'garage-4821' }, ip: '10.0.0.8' }), fakeResponse(), vi.fn());
+
+    const response = fakeResponse();
+    middleware(bad, response, vi.fn());
+    expect(response.statusCode).toBe(401); // счётчик снова с нуля, блокировки нет
   });
 });
 

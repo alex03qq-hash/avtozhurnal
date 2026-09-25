@@ -25,6 +25,19 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
+/**
+ * Проверки работают с данными. Если база пуста, загружаем демонстрационный набор:
+ * без автомобиля интерфейс показывает пустое состояние, и проверки теряют смысл.
+ */
+async function ensureVehicle() {
+  const health = await fetch(`${BASE}/api/health`).then((r) => r.json());
+  if ((health.vehicles ?? 0) > 0) return;
+  await fetch(`${BASE}/api/demo`, { method: 'POST' });
+  console.log('· база была пуста — загружены демонстрационные данные');
+}
+
+await ensureVehicle();
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* ── 1. Манифест ─────────────────────────────────────────────── */
